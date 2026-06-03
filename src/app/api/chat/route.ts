@@ -47,6 +47,7 @@ REGLAS DE RESPUESTA:
 export async function POST(req: NextRequest) {
   try {
     const { message, history } = await req.json()
+    const startTime = Date.now() // 🆕 AGREGAR ESTA LÍNEA
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 })
@@ -108,7 +109,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Respuesta vacía del modelo' }, { status: 500 })
     }
 
+    // 🆕 Trackear uso de Yachaq en InfluxDB
+    try {
+      const { trackYachaqInteraction } = await import('@/lib/influx')
+      const responseTime = Date.now() - startTime
+      // Extraer userId del header si existe (opcional)
+      const userId = req.headers.get('x-user-id') || 'anonymous'
+      await trackYachaqInteraction(userId, message.length, responseTime)
+    } catch (influxError) {
+      console.error('⚠️ InfluxDB Yachaq error:', influxError)
+    }
+
     return NextResponse.json({ response: text })
+    
 
   } catch (error: any) {
     console.error('Error en /api/chat:', error)

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { ChevronRight, ChevronLeft, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import YachaqWidget from '@/components/YachaqWidget'
+import { GameHUDMini } from '@/components/game/GameHUDMini'
 
 const navItems = [
   { href: '/dashboard',  icon: '🏠', label: 'Inicio'      },
@@ -20,18 +21,7 @@ function AndinoBackground() {
       position:'fixed', inset:0, zIndex:0,
       pointerEvents:'none', overflow:'hidden',
     }}>
-      <style>{`
-        @keyframes cloudL   {0%{transform:translateX(0)}100%{transform:translateX(110vw)}}
-        @keyframes cloudR   {0%{transform:translateX(0)}100%{transform:translateX(-110vw)}}
-        @keyframes treeSway {0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
-        @keyframes sway1    {0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
-        @keyframes sway2    {0%,100%{transform:rotate(2deg)}50%{transform:rotate(-3deg)}}
-        @keyframes sway3    {0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
-        @keyframes riverFlow{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-80}}
-        @keyframes sunPulse {0%,100%{opacity:0.18}50%{opacity:0.28}}
-        @keyframes birdFly  {0%{transform:translate(0,0)}40%{transform:translate(140px,-18px)}100%{transform:translate(0,0)}}
-        @keyframes twinkle  {0%,100%{opacity:0.12}50%{opacity:0.28}}
-      `}</style>
+     
       <svg
         style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
         viewBox="0 0 1400 900"
@@ -500,13 +490,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span style={{fontWeight:900,color:'#C4763A',fontSize:16}}>QuechuaQuest</span>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(255,240,230,0.9)',border:'1.5px solid #F4B885',fontSize:13,fontWeight:700,color:'#C4763A',backdropFilter:'blur(4px)'}}>
-              🔥 {streakDays} días
-            </div>
-            <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(250,238,218,0.9)',border:'1.5px solid #F0D080',fontSize:13,fontWeight:700,color:'#A07830',backdropFilter:'blur(4px)'}}>
-              ⚡ {xpTotal} XP
-            </div>
-          </div>
+  <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(255,240,230,0.9)',border:'1.5px solid #F4B885',fontSize:13,fontWeight:700,color:'#C4763A',backdropFilter:'blur(4px)'}}>
+    🔥 {streakDays} días
+  </div>
+  <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(250,238,218,0.9)',border:'1.5px solid #F0D080',fontSize:13,fontWeight:700,color:'#A07830',backdropFilter:'blur(4px)'}}>
+    ⚡ {xpTotal} XP
+  </div>
+  <GameHUDMini userId={profile?.id} />
+</div>
         </div>
         {/* CONTENT */}
         <div style={{padding:'28px 24px',flex:1}}>

@@ -30,6 +30,24 @@ export default function AuthPage() {
     setSuccess('')
   }
 
+  // ✅ NUEVA FUNCIÓN: Detectar rol y redirigir
+  const redirectBasedOnRole = async (userId: string) => {
+    const supabase = createClient()
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    // Redirigir según el rol
+    if (profile?.role === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -77,9 +95,9 @@ export default function AuthPage() {
           return
         }
 
-        // Sesión activa (email confirmation desactivado en Supabase)
-        if (data.session) {
-          router.push('/dashboard')
+        // ✅ CAMBIO: Detectar rol antes de redirigir
+        if (data.session && data.user) {
+          await redirectBasedOnRole(data.user.id)
           return
         }
 
@@ -106,9 +124,16 @@ export default function AuthPage() {
           return
         }
 
-        if (data.session) {
-          router.push('/dashboard')
-        }
+        if (data.session && data.user) {
+  // 🆕 Trackear sesión en InfluxDB
+  try {
+    const { trackUserSession } = await import('@/lib/influx')
+    await trackUserSession(data.user.id, 'web')
+  } catch (influxError) {
+    console.error('⚠️ InfluxDB session error:', influxError)
+  }
+  await redirectBasedOnRole(data.user.id)
+}
       }
     } catch (err) {
       setError('Ocurrió un error inesperado. Intenta de nuevo.')

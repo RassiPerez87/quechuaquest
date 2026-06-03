@@ -441,12 +441,7 @@ function ContentPhase({ lesson, onStartExercises }: { lesson: any; onStartExerci
         </div>
       )}
 
-      <style>{`
-        @keyframes pulse {
-          0%,100%{box-shadow:0 5px 18px rgba(29,158,117,0.4)}
-          50%{box-shadow:0 5px 28px rgba(29,158,117,0.7)}
-        }
-      `}</style>
+      
     </div>
   )
 }
@@ -571,10 +566,7 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
 
   return (
     <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px 40px' }}>
-      <style>{`
-        @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-      `}</style>
+      
 
       {/* Mini progreso dots */}
       <div style={{ display:'flex', justifyContent:'center', gap:5, marginBottom:20, flexWrap:'wrap' }}>
@@ -875,11 +867,7 @@ function VictoryPhase({ lesson, score, total, xp, streak, tinkuTriggered, onGoTo
 
   return (
     <div style={{ maxWidth:520, margin:'0 auto', padding:'40px 16px' }}>
-      <style>{`
-        @keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-      `}</style>
+      
 
       {/* Emoji grande animado */}
       <div style={{ textAlign:'center', marginBottom:24, animation:'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -1012,46 +1000,66 @@ function LeccionPageInner() {
 
   useEffect(() => { load() }, [load])
 
-  const handleFinishExercises = async (score: number, xp: number) => {
-    setFinalScore(score)
-    setFinalXP(xp)
+ const handleFinishExercises = async (score: number, xp: number) => {
+  setFinalScore(score)
+  setFinalXP(xp)
 
-    // Asegurar que id sea string (useParams puede devolver string | string[])
-    const lessonId = Array.isArray(id) ? id[0] : id as string
+  const lessonId = Array.isArray(id) ? id[0] : id as string
 
-    if (userId && lessonId) {
-      const supabase = createClient()
+  if (userId && lessonId) {
+    const supabase = createClient()
 
-      // Guardar sesión de ejercicios
-      const sessionXp = exercises.length > 0 ? xp : 0
-      const total = exercises.length || 1
-      await supabase.from('exercise_sessions').insert({
-        user_id:   userId,
-        lesson_id: lessonId,
-        score,
-        total,
-        xp_gained: sessionXp,
-        accuracy:  Math.round((score / total) * 100),
-      })
+    const sessionXp = exercises.length > 0 ? xp : 0
+    const total = exercises.length || 1
 
-      // Completar lección y actualizar user_progress
-      const { data: result, error } = await supabase.rpc('complete_lesson', {
-        p_user_id:   userId,
-        p_lesson_id: lessonId,
-        p_xp_earned: sessionXp,
-      })
+    await supabase.from('exercise_sessions').insert({
+      user_id:   userId,
+      lesson_id: lessonId,
+      score,
+      total,
+      xp_gained: sessionXp,
+      accuracy:  Math.round((score / total) * 100),
+    })
 
-      if (error) {
-        console.error('Error en complete_lesson:', error)
-      } else if (result) {
-        setStreak(result.streak_days ?? 0)
-        setTinkuTrigger(result.tinku_triggered ?? false)
+    const { data: result, error } = await supabase.rpc('complete_lesson', {
+      p_user_id:   userId,
+      p_lesson_id: lessonId,
+      p_xp_earned: sessionXp,
+    })
+
+    if (error) {
+      console.error('Error en complete_lesson:', error)
+      try {
+        const { trackError } = await import('@/lib/influx')
+        await trackError('complete_lesson_error', error.message, userId, 'leccion')
+      } catch (influxError) {
+        console.error('⚠️ InfluxDB error tracking:', influxError)
+      }
+    } else if (result) {
+      setStreak(result.streak_days ?? 0)
+      setTinkuTrigger(result.tinku_triggered ?? false)
+
+      try {
+        const { trackLessonCompletion } = await import('@/lib/influx')
+        const timeSpent = Math.floor(exercises.length * 45)
+        await trackLessonCompletion(
+          userId,
+          lessonId,
+          lesson.level || 'basico',
+          Math.round((score / total) * 100),
+          timeSpent,
+          total,
+          score
+        )
+        console.log('✅ Métricas enviadas a InfluxDB')
+      } catch (influxError) {
+        console.error('⚠️ Error enviando a InfluxDB:', influxError)
       }
     }
-
-    setPhase('victory')
   }
 
+  setPhase('victory')
+}
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', fontFamily:'Poppins,sans-serif' }}>
       <div style={{ textAlign:'center' }}>

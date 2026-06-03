@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
-// @ts-ignore
+import { GameProvider } from '@/components/game/GameProvider'
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -19,7 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning>
         <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FEFAF5' }} />}>
-          {children}
+          <GameProvider>
+            {children}
+          </GameProvider>
         </Suspense>
       </body>
     </html>

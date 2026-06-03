@@ -38,7 +38,7 @@ function IntroScreen({ tipo, num, totalQ, onStart }: {
       display:'flex', flexDirection:'column', alignItems:'center',
       gap:20, textAlign:'center', fontFamily:'Poppins,sans-serif',
     }}>
-      <style>{`@keyframes popIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}`}</style>
+      
 
       <div style={{
         width:100, height:100, borderRadius:'50%',
@@ -325,8 +325,7 @@ function ResultsScreen({ tipo, score, total, xp, newInsignias, onBack }: {
 
   return (
     <div style={{maxWidth:500,margin:'0 auto',padding:'40px 16px',fontFamily:'Poppins,sans-serif'}}>
-      <style>{`@keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
-              @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      
 
       <div style={{textAlign:'center',marginBottom:24,animation:'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)'}}>
         <div style={{fontSize:72,marginBottom:12,lineHeight:1}}>{emoji}</div>

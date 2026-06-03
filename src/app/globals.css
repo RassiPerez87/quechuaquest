@@ -135,3 +135,38 @@ body {
     margin-left: 72px !important;
   }
 }
+@keyframes cloudL    { 0% { transform: translateX(0); } 100% { transform: translateX(110vw); } }
+@keyframes cloudR    { 0% { transform: translateX(0); } 100% { transform: translateX(-110vw); } }
+@keyframes treeSway  { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes sway1     { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes sway2     { 0%, 100% { transform: rotate(2deg); } 50% { transform: rotate(-3deg); } }
+@keyframes sway3     { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes riverFlow { 0% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -80; } }
+@keyframes sunPulse  { 0%, 100% { opacity: 0.18; } 50% { opacity: 0.28; } }
+@keyframes birdFly   { 0% { transform: translate(0, 0); } 40% { transform: translate(140px, -18px); } 100% { transform: translate(0, 0); } }
+@keyframes twinkle   { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.28; } }
+@keyframes shake     { 0%, 100% { transform: translateX(0) rotate(0deg); } 25% { transform: translateX(-8px) rotate(-5deg); } 75% { transform: translateX(8px) rotate(5deg); } }
+@keyframes confettiFall { 0% { transform: translateY(-10px) rotate(0deg); opacity: 1; } 100% { transform: translateY(420px) rotate(720deg); opacity: 0; } }
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-12px); }
+}
+@keyframes pulseRing {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(196,118,58,0.5); } 50% { box-shadow: 0 0 0 8px rgba(196,118,58,0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes talkRing { 0%,100% { box-shadow: 0 0 0 0 rgba(29,158,117,0.5); } 50% { box-shadow: 0 0 0 8px rgba(29,158,117,0); } }
+@keyframes fabBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ringPulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes floatBadge { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }

@@ -509,11 +509,7 @@ export default function Dashboard() {
       </div>
 
       <div style={{position:'relative',zIndex:1}}>
-        <style>{`
-          @keyframes fadeSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-          @keyframes pulseRing{0%{transform:scale(1);opacity:0.7}100%{transform:scale(1.7);opacity:0}}
-        `}</style>
+        
 
         {/* Saludo */}
         <div style={{marginBottom:20,paddingTop:4,animation:'fadeSlideUp 0.4s ease'}}>

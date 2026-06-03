@@ -296,16 +296,7 @@ export default function YachaqWidget() {
 
   return (
     <>
-      <style>{`
-        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
-        @keyframes popIn{from{opacity:0;transform:scale(0.85) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
-        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(196,118,58,0.5)}70%{box-shadow:0 0 0 12px rgba(196,118,58,0)}}
-        @keyframes talkRing{0%,100%{box-shadow:0 0 0 0 rgba(29,158,117,0.7)}50%{box-shadow:0 0 0 8px rgba(29,158,117,0)}}
-        @keyframes fabBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        @keyframes ringPulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(1.6);opacity:0}}
-        @keyframes floatBadge{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-      `}</style>
+      
 
       {isOpen && (
         <div style={{

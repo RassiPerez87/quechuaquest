@@ -1,9 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
+ 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
-
+ 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -13,8 +13,6 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // ✅ FIX: primero setear en request, LUEGO recrear supabaseResponse
-          // y setear en la response también — ambos pasos son obligatorios
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
@@ -26,16 +24,47 @@ export async function middleware(request: NextRequest) {
       },
     }
   )
-
-  // ✅ IMPORTANTE: getUser() refresca la sesión automáticamente
-  // Nunca usar getSession() en middleware — no es confiable en SSR
+ 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
+ 
   const pathname = request.nextUrl.pathname
-
-  // Rutas que requieren login
+ 
+  // ==========================================
+  // NUEVA PROTECCIÓN: Rutas de administrador
+  // ==========================================
+  if (pathname.startsWith('/admin')) {
+    // Sin sesión → redirigir al login
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth'
+      url.searchParams.set('mode', 'login')
+      url.searchParams.set('redirect', '/admin')
+      return NextResponse.redirect(url)
+    }
+ 
+    // Con sesión → verificar rol de admin
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+ 
+    // Si no es admin → redirigir al dashboard
+    if (!profileData || profileData.role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+ 
+    // Es admin → permitir acceso
+    return supabaseResponse
+  }
+ 
+  // ==========================================
+  // PROTECCIÓN EXISTENTE: Rutas de usuario
+  // ==========================================
   const protectedRoutes = [
     '/dashboard',
     '/lecciones',
@@ -47,7 +76,7 @@ export async function middleware(request: NextRequest) {
   const isProtected = protectedRoutes.some(route =>
     pathname.startsWith(route)
   )
-
+ 
   // Sin sesión → redirigir al login
   if (!user && isProtected) {
     const url = request.nextUrl.clone()
@@ -55,19 +84,17 @@ export async function middleware(request: NextRequest) {
     url.searchParams.set('mode', 'login')
     return NextResponse.redirect(url)
   }
-
+ 
   // Con sesión → no dejar entrar al /auth, mandar al dashboard
   if (user && pathname.startsWith('/auth')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
-
-  // ✅ CRÍTICO: siempre retornar supabaseResponse (no NextResponse.next())
-  // para que las cookies de sesión se propaguen correctamente
+ 
   return supabaseResponse
 }
-
+ 
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',

@@ -77,7 +77,7 @@ export default function LeaderboardPage() {
 
   return (
     <div style={{fontFamily:'Poppins,sans-serif',maxWidth:600,margin:'0 auto',padding:'4px 16px 80px'}}>
-      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      
 
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,paddingTop:4}}>
