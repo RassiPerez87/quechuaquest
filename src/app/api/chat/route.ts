@@ -37,17 +37,37 @@ REGLAS DE RESPUESTA:
 1. Detecta automáticamente si el usuario escribe en español o quechua
 2. Si escribe en español → responde en español con ejemplos en quechua
 3. Si escribe en quechua → responde en quechua con traducciones al español
-4. Sé conciso pero completo — máximo 4-5 oraciones
-5. Siempre incluye ejemplos prácticos
+4. Sé extremadamente breve, conciso y directo. Si te preguntan cómo se dice una palabra o frase corta, responde en máximo 1 o 2 oraciones.
+5. Incluye como máximo un ejemplo práctico y corto (ej: "Uña allqu = perro pequeño"). Evita explicaciones largas o múltiples ejemplos innecesarios.
 6. Usa el dialecto COCHABAMBINO específicamente
 7. Sé motivador usando expresiones como ¡Allin! o ¡Sumaq!
-8. Para traducciones simples responde directo: X en quechua es Y
-9. Mantén tono amigable y pedagógico`
+8. Para traducciones simples responde directo: X en quechua se dice Y. Ejemplo: [ejemplo corto]
+9. Mantén tono amigable y pedagógico, pero priorizando la brevedad por sobre todo
+
+REGLA OBLIGATORIA — FINAL DE CADA RESPUESTA:
+SIEMPRE debes terminar tu respuesta con esta línea exacta (sin excepción):
+"¿Quieres practicar la pronunciación? ¡Te escucho! «PALABRA»"
+Donde PALABRA es la palabra quechua principal que mencionaste en tu respuesta.
+Ejemplos:
+- Si dijiste Imaynalla → termina con: ¿Quieres practicar la pronunciación? ¡Te escucho! «Imaynalla»
+- Si dijiste P'unchaw allin → termina con: ¿Quieres practicar la pronunciación? ¡Te escucho! «P'unchaw allin»
+- Si dijiste Mikhuy → termina con: ¿Quieres practicar la pronunciación? ¡Te escucho! «Mikhuy»
+Esto es OBLIGATORIO. NUNCA termines sin este formato.`
+
+const PRONUNCIATION_CHECK_PROMPT = `Eres Yachaq, evaluador amigable y ultra-breve de pronunciación de quechua cochabambino.
+El estudiante intentó pronunciar una palabra quechua y el micrófono lo transcribió en español fonéticamente.
+
+Reglas — responde en máximo 1 frase muy corta (máximo 12 palabras):
+1. Si suena parecido o correcto: di brevemente "¡Allin! Excelente pronunciación." o similar.
+2. Si hay diferencia y pronunció mal: di el consejo de forma directa y muy corta (ej: "Casi, recuerda que la Q suena más en la garganta."). Evita textos largos.
+3. SIEMPRE termina tu respuesta preguntando textualmente: "¿Quieres seguir practicando la pronunciación de «PALABRA»?"
+4. NUNCA uses notación con guiones como "i-ma-y-nal-la".
+5. Sé muy generoso con la evaluación ya que el micrófono transcribe a español.`
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history } = await req.json()
-    const startTime = Date.now() // 🆕 AGREGAR ESTA LÍNEA
+    const { message, history, pronunciationCheck, targetWord } = await req.json()
+    const startTime = Date.now()
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 })
@@ -60,22 +80,32 @@ export async function POST(req: NextRequest) {
     }
 
     // Construir mensajes para Groq (formato OpenAI-compatible)
-    const messages: { role: string; content: string }[] = [
-      { role: 'system', content: SYSTEM_PROMPT }
-    ]
+    const messages: { role: string; content: string }[] = []
 
-    // Agregar historial previo (últimos 6 mensajes)
-    if (history && history.length > 0) {
-      for (const msg of history.slice(-6)) {
-        messages.push({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content,
-        })
+    if (pronunciationCheck && targetWord) {
+      // Modo evaluación de pronunciación
+      messages.push({ role: 'system', content: PRONUNCIATION_CHECK_PROMPT })
+      messages.push({
+        role: 'user',
+        content: `Palabra/frase objetivo que debía pronunciar: «${targetWord}»\nLo que captó el reconocimiento de voz: "${message}"\nEvalúa si pronunció correctamente.`,
+      })
+    } else {
+      // Modo chat normal
+      messages.push({ role: 'system', content: SYSTEM_PROMPT })
+
+      // Agregar historial previo (últimos 6 mensajes)
+      if (history && history.length > 0) {
+        for (const msg of history.slice(-6)) {
+          messages.push({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content,
+          })
+        }
       }
-    }
 
-    // Agregar mensaje actual
-    messages.push({ role: 'user', content: message })
+      // Agregar mensaje actual
+      messages.push({ role: 'user', content: message })
+    }
 
     // Llamar a Groq API
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -121,7 +151,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ response: text })
-    
+
 
   } catch (error: any) {
     console.error('Error en /api/chat:', error)

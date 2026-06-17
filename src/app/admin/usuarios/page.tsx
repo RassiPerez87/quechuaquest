@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
-import { Search, UserPlus, Edit2, Trash2, Shield, User, Eye, Download } from 'lucide-react'
+import { Search, Shield, User, Eye, Download, FileText } from 'lucide-react'
 import UserDetailModal from '@/components/admin/UserDetailModal'
 import { exportUsersToCSV } from '@/lib/exportUtils'
 
@@ -20,6 +21,7 @@ interface Usuario {
 }
 
 export default function UsuariosPage() {
+  const router = useRouter()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -240,6 +242,7 @@ export default function UsuariosPage() {
                 <th style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>XP</th>
                 <th style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>Nivel</th>
                 <th style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>Lecciones</th>
+                <th style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>Registro</th>
                 <th style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>Acciones</th>
               </tr>
             </thead>
@@ -293,32 +296,58 @@ export default function UsuariosPage() {
                   <td style={{ padding: 16, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#7A9E6E' }}>
                     {usuario.total_lessons_completed || 0}
                   </td>
+                  <td style={{ padding: 16, textAlign: 'center' }}>
+                    {usuario.created_at ? (
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: '#2A1E15', margin: 0 }}>
+                          {new Date(usuario.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12, color: '#B8A898' }}>—</span>
+                    )}
+                  </td>
                   <td style={{ padding: 16 }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => verDetalle(usuario)}
                         style={{
-                          padding: '8px 12px', borderRadius: 8, border: 'none',
+                          padding: '7px 11px', borderRadius: 8, border: 'none',
                           background: '#E3F2FD', color: '#1565C0',
                           fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', gap: 4,
                           transition: 'all 0.2s', fontFamily: 'Poppins, sans-serif'
                         }}
                       >
-                        <Eye size={14} />
+                        <Eye size={13} />
                         Ver
+                      </button>
+                      <button
+                        onClick={() => router.push(`/admin/usuarios/${usuario.id}/reporte`)}
+                        style={{
+                          padding: '7px 11px', borderRadius: 8, border: 'none',
+                          background: 'linear-gradient(135deg, #C4763A, #D4A853)',
+                          color: 'white',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          transition: 'all 0.2s', fontFamily: 'Poppins, sans-serif',
+                          boxShadow: '0 2px 8px rgba(196,118,58,0.3)'
+                        }}
+                      >
+                        <FileText size={13} />
+                        Reporte
                       </button>
                       <button
                         onClick={() => cambiarRol(usuario.id, usuario.role === 'admin' ? 'student' : 'admin')}
                         style={{
-                          padding: '8px 12px', borderRadius: 8, border: 'none',
+                          padding: '7px 11px', borderRadius: 8, border: 'none',
                           background: usuario.role === 'admin' ? '#E3F2FD' : '#FFF3E0',
                           color: usuario.role === 'admin' ? '#1565C0' : '#E65100',
                           fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           transition: 'all 0.2s', fontFamily: 'Poppins, sans-serif'
                         }}
                       >
-                        {usuario.role === 'admin' ? '→ Estudiante' : '→ Admin'}
+                        {usuario.role === 'admin' ? '→ Est.' : '→ Admin'}
                       </button>
                     </div>
                   </td>

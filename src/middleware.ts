@@ -85,12 +85,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
  
-  // Con sesión → no dejar entrar al /auth, mandar al dashboard
-  if (user && pathname.startsWith('/auth')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
+  // Permitir que los usuarios vean el formulario de /auth incluso si tienen sesión activa
+  // (para que puedan registrarse o iniciar sesión con otra cuenta sin auto-ingresar)
  
   return supabaseResponse
 }

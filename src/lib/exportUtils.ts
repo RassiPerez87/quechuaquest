@@ -84,6 +84,100 @@ export function exportInsigniasToCSV(insignias: any[]) {
   exportToCSV(exportData, 'insignias_quechuaquest')
 }
 
+// ── Helpers de fecha ──────────────────────────────────────────
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  })
+}
+
+function fmtDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+// ── Reporte individual de usuario ─────────────────────────────
+export function exportReporteIndividual(
+  usuario: any,
+  lecciones: any[],
+  sesiones: any[],
+  insignias: any[]
+) {
+  const BOM = '\ufeff'
+  const rows: string[][] = []
+
+  rows.push(['REPORTE INDIVIDUAL — QuechuaQuest'])
+  rows.push(['Generado el', new Date().toLocaleString('es-ES')])
+  rows.push([])
+  rows.push(['DATOS DEL USUARIO'])
+  rows.push(['Usuario', usuario.username || ''])
+  rows.push(['Nombre Completo', usuario.full_name || ''])
+  rows.push(['Email', usuario.email || ''])
+  rows.push(['Rol', usuario.role === 'admin' ? 'Administrador' : 'Estudiante'])
+  rows.push(['Fecha de Registro', fmtDate(usuario.created_at)])
+  rows.push(['Última Actividad', fmtDate(usuario.last_activity)])
+  rows.push(['XP Total', String(usuario.xp || 0)])
+  rows.push(['Nivel', String(usuario.level || 1)])
+  rows.push(['Lecciones Completadas', String(usuario.total_lessons_completed || 0)])
+  rows.push([])
+  rows.push(['HISTORIAL DE LECCIONES'])
+  rows.push(['Lección', 'Nivel', 'Estado', 'Progreso (%)', 'Fecha Completada'])
+  lecciones.forEach((l: any) => {
+    rows.push([
+      l.title_es || l.title || 'Sin título',
+      l.level || '',
+      l.completado ? 'Completada' : 'En progreso',
+      String(l.progreso || 0),
+      fmtDate(l.completed_at)
+    ])
+  })
+  rows.push([])
+  rows.push(['HISTORIAL DE SESIONES DE EJERCICIO'])
+  rows.push(['Lección', 'Fecha y Hora', 'Puntaje', 'Total Preguntas', 'Precisión (%)', 'XP Ganado', 'Resultado'])
+  sesiones.forEach((s: any) => {
+    const acc = s.accuracy || 0
+    rows.push([
+      s.lesson_title || s.lessons?.title_es || '',
+      fmtDateTime(s.completed_at),
+      String(s.score || 0),
+      String(s.total || 0),
+      String(acc),
+      String(s.xp_gained || 0),
+      acc >= 70 ? 'Aprobado' : 'Repaso necesario'
+    ])
+  })
+  rows.push([])
+  rows.push(['INSIGNIAS OBTENIDAS'])
+  rows.push(['Insignia', 'Descripción', 'Fecha Obtenida'])
+  insignias.forEach((i: any) => {
+    rows.push([
+      i.nombre || '',
+      i.descripcion || '',
+      fmtDate(i.earned_at)
+    ])
+  })
+
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell)
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    return s
+  }).join(',')).join('\n')
+
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `reporte_${usuario.username || 'usuario'}_${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function exportReporteGeneral(stats: any, topUsers: any[]) {
   const reporteData = [
     { Métrica: 'Total de Usuarios', Valor: stats?.total_students || 0 },

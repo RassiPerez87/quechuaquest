@@ -26,6 +26,19 @@ const SKILLS = [
   { key:'nominalizaciones',label:'Nominalizaciones',      icon:'📖', color:C.grayb,  light:C.grayl   },
 ]
 
+// Mapeo de lecciones (IDs) asociadas a cada una de las 8 habilidades
+const SKILL_LESSONS: Record<string, string[]> = {
+  saludos: ['basico-01', 'basico-02', 'basico-07'],
+  locativos: ['basico-03', 'basico-04', 'basico-06'],
+  verbos: ['basico-05', 'intermedio-01', 'intermedio-03', 'intermedio-04', 'intermedio-06', 'intermedio-07', 'intermedio-09', 'intermedio-10'],
+  numeros: ['basico-09', 'intermedio-08'],
+  cultura: ['intermedio-05', 'avanzado-05', 'maestria-01', 'maestria-02', 'maestria-03', 'maestria-04', 'maestria-05'],
+  evidencialidad: ['avanzado-01', 'avanzado-06', 'avanzado-09'],
+  vocabulario: ['basico-08', 'basico-10', 'intermedio-02', 'avanzado-02'],
+  nominalizaciones: ['avanzado-03', 'avanzado-04', 'avanzado-07', 'avanzado-08', 'avanzado-10']
+}
+
+
 // ── Regresión lineal ──────────────────────────────────────────
 function calcLinReg(ys: number[]) {
   const n = ys.length
@@ -40,18 +53,28 @@ function calcLinReg(ys: number[]) {
   return { a, b }
 }
 
-// ── Gráfica con regresión lineal ──────────────────────────────
+// ── Formateador de fechas cortas ─────────────────────────────
+function fmtDateShort(isoStr: string): string {
+  const d = new Date(isoStr)
+  return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
+}
+
+// ── Gráfica de precisión con fechas reales ────────────────────
 function SessionChart({ sessions }: { sessions: any[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef  = useRef<any>(null)
 
-  const accuracies = sessions
-    .slice(0, 12)
+  // Tomar las últimas 12 sesiones, ordenadas de más antigua a más reciente
+  const recent = sessions
+    .filter(s => s.completed_at)
+    .slice(0, 14)
     .reverse()
-    .map(s => s.accuracy ?? 0)
+
+  const accuracies = recent.map(s => s.accuracy ?? 0)
+  const labels     = recent.map(s => fmtDateShort(s.completed_at))
+  const n = accuracies.length
 
   const { a, b } = calcLinReg(accuracies)
-  const n = accuracies.length
   const PROJ = 3
 
   const trendData = accuracies.map((_, i) =>
@@ -60,25 +83,14 @@ function SessionChart({ sessions }: { sessions: any[] }) {
   const projData = Array.from({ length: PROJ }, (_, i) =>
     Math.min(100, Math.max(0, Math.round(a + b * (n + i + 1)))))
 
-  const labels = [
-    ...accuracies.map((_, i) => `S${i + 1}`),
-    ...Array.from({ length: PROJ }, (_, i) => `S${n + i + 1}`),
-  ]
-  const barData   = [...accuracies, ...Array(PROJ).fill(null)]
-  const trendLine = [...trendData,  ...Array(PROJ).fill(null)]
+  const allLabels  = [...labels,     ...Array.from({ length: PROJ }, (_, i) => `+${i+1}`)]
+  const barData    = [...accuracies, ...Array(PROJ).fill(null)]
+  const trendLine  = [...trendData,  ...Array(PROJ).fill(null)]
+  const projLine   = n > 0
+    ? [...Array(Math.max(0, n - 1)).fill(null), trendData[n - 1], ...projData]
+    : []
 
-  const projLine = n > 0
-  ? [
-      ...Array(Math.max(0, n - 1)).fill(null),
-      trendData[n - 1],
-      ...projData,
-    ]
-  : []
-
-  const avg = n > 0
-    ? Math.round(accuracies.reduce((s, v) => s + v, 0) / n)
-    : 0
-
+  const avg      = n > 0 ? Math.round(accuracies.reduce((s, v) => s + v, 0) / n) : 0
   const tendSign = b >= 1 ? `+${b.toFixed(1)}` : b.toFixed(1)
   const tendColor = b >= 1 ? C.green : b <= -1 ? '#E24B4A' : C.gray
 
@@ -96,7 +108,7 @@ function SessionChart({ sessions }: { sessions: any[] }) {
     chartRef.current = new window.Chart(canvasRef.current, {
       type: 'bar',
       data: {
-        labels,
+        labels: allLabels,
         datasets: [
           {
             label: 'Precisión real',
@@ -106,7 +118,7 @@ function SessionChart({ sessions }: { sessions: any[] }) {
                 v >= 80 ? C.green : v >= 50 ? C.goldd : C.terra),
               ...Array(PROJ).fill('transparent'),
             ],
-            borderRadius: 4,
+            borderRadius: 5,
             borderSkipped: false,
             order: 3,
           },
@@ -118,7 +130,7 @@ function SessionChart({ sessions }: { sessions: any[] }) {
             borderWidth: 2,
             borderDash: [5, 4],
             pointRadius: 0,
-            tension: 0,
+            tension: 0.3,
             fill: false,
             order: 1,
           },
@@ -131,7 +143,7 @@ function SessionChart({ sessions }: { sessions: any[] }) {
             borderDash: [6, 4],
             pointBackgroundColor: C.terra,
             pointRadius: (ctx: any) => ctx.dataIndex >= n ? 4 : 0,
-            tension: 0,
+            tension: 0.3,
             fill: false,
             order: 2,
           },
@@ -143,10 +155,32 @@ function SessionChart({ sessions }: { sessions: any[] }) {
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: '#2A1E15',
+            titleColor: '#FAC775',
+            bodyColor: '#F1EFE8',
+            padding: 10,
+            cornerRadius: 10,
             callbacks: {
+              title: (ctx: any) => {
+                const idx = ctx[0].dataIndex
+                if (idx < recent.length) {
+                  const s = recent[idx]
+                  return new Date(s.completed_at).toLocaleDateString('es-PE', {
+                    weekday: 'short', day: '2-digit', month: 'long'
+                  })
+                }
+                return `Proyección`
+              },
               label: (ctx: any) => {
                 if (ctx.raw === null) return null
-                if (ctx.dataset.label === 'Precisión real') return `Precisión: ${ctx.raw}%`
+                if (ctx.dataset.label === 'Precisión real') {
+                  const idx = ctx.dataIndex
+                  const s = recent[idx]
+                  return [
+                    `Precisión: ${ctx.raw}%`,
+                    s ? `${s.score ?? '-'}/${s.total ?? '-'} correctas` : '',
+                  ].filter(Boolean)
+                }
                 if (ctx.dataset.label === 'Proyección futura' && ctx.dataIndex >= n) return `Proyección: ${ctx.raw}%`
                 if (ctx.dataset.label === 'Tendencia lineal') return `Tendencia: ${ctx.raw}%`
                 return null
@@ -157,12 +191,23 @@ function SessionChart({ sessions }: { sessions: any[] }) {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { size: 10 }, color: C.grayb, autoSkip: false, maxRotation: 0 },
+            ticks: {
+              font: { size: 10, family: 'Poppins, sans-serif' },
+              color: C.grayb,
+              maxRotation: 30,
+              autoSkip: true,
+              maxTicksLimit: 10,
+            },
           },
           y: {
             min: 0, max: 100,
-            grid: { color: 'rgba(0,0,0,0.05)' },
-            ticks: { font: { size: 10 }, color: C.grayb, callback: (v: any) => `${v}%` },
+            grid: { color: 'rgba(0,0,0,0.04)' },
+            ticks: {
+              font: { size: 10 },
+              color: C.grayb,
+              callback: (v: any) => `${v}%`,
+              stepSize: 20,
+            },
           },
         },
       },
@@ -182,9 +227,9 @@ function SessionChart({ sessions }: { sessions: any[] }) {
       {/* Métricas resumen */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 14 }}>
         {[
-          { lbl: 'Tendencia',      val: `${tendSign} pts/ses.`, color: tendColor },
-          { lbl: 'Próxima ses.',   val: `~${projData[0]}%`,    color: C.purple },
-          { lbl: 'Promedio real',  val: `${avg}%`,             color: C.brown  },
+          { lbl: 'Tendencia',     val: `${tendSign} pts/ses.`, color: tendColor },
+          { lbl: 'Proyección',    val: `~${projData[0]}%`,     color: C.purple },
+          { lbl: 'Promedio real', val: `${avg}%`,              color: C.brown  },
         ].map((m, i) => (
           <div key={i} style={{
             background: C.grayl, borderRadius: 10, padding: '8px 10px', textAlign: 'center',
@@ -197,7 +242,7 @@ function SessionChart({ sessions }: { sessions: any[] }) {
 
       {/* Canvas Chart.js */}
       <div style={{ position: 'relative', width: '100%', height: 200 }}>
-        <canvas ref={canvasRef} role="img" aria-label="Gráfica de precisión por sesión con regresión lineal" />
+        <canvas ref={canvasRef} role="img" aria-label="Gráfica de precisión por sesión con fechas y regresión lineal" />
       </div>
 
       {/* Leyenda */}
@@ -222,6 +267,109 @@ function SessionChart({ sessions }: { sessions: any[] }) {
   )
 }
 
+// ── Gráfica de XP acumulado ───────────────────────────────────
+function XPTimelineChart({ sessions }: { sessions: any[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const chartRef  = useRef<any>(null)
+
+  // Agrupar XP por día, últimos 14 días
+  const xpMap: Record<string, number> = {}
+  sessions.forEach(s => {
+    if (!s.completed_at) return
+    const day = s.completed_at.split('T')[0]
+    xpMap[day] = (xpMap[day] ?? 0) + (s.xp_gained ?? 0)
+  })
+
+  const today = new Date()
+  const days14: { date: string; label: string; xp: number }[] = []
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().split('T')[0]
+    const label = d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
+    days14.push({ date: key, label, xp: xpMap[key] ?? 0 })
+  }
+
+  const hasData = days14.some(d => d.xp > 0)
+
+  useEffect(() => {
+    if (!canvasRef.current || !hasData) return
+    // @ts-ignore
+    if (typeof window === 'undefined' || !window.Chart) return
+
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
+
+    const gradient = canvasRef.current.getContext('2d')?.createLinearGradient(0, 0, 0, 160)
+    gradient?.addColorStop(0, 'rgba(196,118,58,0.25)')
+    gradient?.addColorStop(1, 'rgba(196,118,58,0.0)')
+
+    // @ts-ignore
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'line',
+      data: {
+        labels: days14.map(d => d.label),
+        datasets: [{
+          label: 'XP ganado',
+          data: days14.map(d => d.xp),
+          borderColor: C.terra,
+          borderWidth: 2.5,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: days14.map(d => d.xp > 0 ? C.terra : 'transparent'),
+          pointBorderColor: days14.map(d => d.xp > 0 ? C.terra : 'transparent'),
+          pointRadius: days14.map(d => d.xp > 0 ? 5 : 0),
+          pointHoverRadius: 7,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#2A1E15',
+            titleColor: '#FAC775',
+            bodyColor: '#F1EFE8',
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: (ctx: any) => ctx.raw > 0 ? `+${ctx.raw} XP` : 'Sin actividad',
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 }, color: C.grayb, maxRotation: 30 },
+          },
+          y: {
+            min: 0,
+            grid: { color: 'rgba(0,0,0,0.04)' },
+            ticks: {
+              font: { size: 10 }, color: C.grayb,
+              callback: (v: any) => v > 0 ? `${v} XP` : '',
+            },
+          },
+        },
+      },
+    })
+    return () => { chartRef.current?.destroy(); chartRef.current = null }
+  }, [sessions])
+
+  if (!hasData) return (
+    <div style={{ textAlign: 'center', padding: '24px 0', color: C.grayb, fontSize: 13 }}>
+      Sin actividad en los últimos 14 días
+    </div>
+  )
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: 170 }}>
+      <canvas ref={canvasRef} role="img" aria-label="XP ganado por día en los últimos 14 días" />
+    </div>
+  )
+}
+
 // ── Calendario de actividad ───────────────────────────────────
 function ActivityCalendar({ sessions }: { sessions: any[] }) {
   const activityMap: Record<string, number> = {}
@@ -231,7 +379,8 @@ function ActivityCalendar({ sessions }: { sessions: any[] }) {
     activityMap[date] = (activityMap[date] ?? 0) + (s.score ?? 0)
   })
 
-  const days: Array<{date: string; level: number}> = []
+  // 28 días en grilla 7 columnas
+  const days: Array<{date: string; level: number; day: Date}> = []
   const today = new Date()
   for (let i = 27; i >= 0; i--) {
     const d = new Date(today)
@@ -239,12 +388,19 @@ function ActivityCalendar({ sessions }: { sessions: any[] }) {
     const key = d.toISOString().split('T')[0]
     const val = activityMap[key] ?? 0
     const level = val === 0 ? 0 : val < 5 ? 1 : val < 10 ? 2 : 3
-    days.push({ date: key, level })
+    days.push({ date: key, level, day: d })
   }
 
   const todayStr = today.toISOString().split('T')[0]
   const colors = ['#F1EFE8', C.greend, C.green, C.greenb]
   const dayLabels = ['L','M','M','J','V','S','D']
+
+  // Detectar cambios de mes para mostrar etiqueta
+  const monthLabels: string[] = days.map((d, i) => {
+    if (i === 0) return d.day.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
+    if (d.day.getDate() === 1) return d.day.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
+    return ''
+  })
 
   return (
     <div>
@@ -254,28 +410,203 @@ function ActivityCalendar({ sessions }: { sessions: any[] }) {
         ))}
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>
-        {days.map(({date, level}, i) => (
-          <div key={i} style={{
-            height:14, borderRadius:3,
-            background: colors[level],
-            border: date === todayStr ? `2px solid ${C.terra}` : 'none',
-            transition:'background 0.3s',
-          }} title={date}/>
+        {days.map(({date, level, day}, i) => (
+          <div key={i}
+            style={{
+              height:14, borderRadius:3,
+              background: colors[level],
+              border: date === todayStr ? `2px solid ${C.terra}` : `1px solid rgba(0,0,0,0.04)`,
+              transition:'background 0.3s',
+              cursor:'default',
+            }}
+            title={`${day.toLocaleDateString('es-PE', { weekday:'short', day:'2-digit', month:'short' })}: ${activityMap[date] ?? 0} puntos`}
+          />
         ))}
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,fontSize:10,color:C.grayb}}>
+      {/* Etiqueta de semana inicio + fin */}
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:9,color:C.grayb}}>
+        <span>{days[0]?.day.toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</span>
+        <span style={{color:C.terra,fontWeight:700}}>Hoy: {today.toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</span>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:10,color:C.grayb}}>
         <span>Menos</span>
         {colors.map((c,i) => (
           <div key={i} style={{width:10,height:10,borderRadius:2,background:c,border:`1px solid ${C.grayl}`}}/>
         ))}
-        <span>Más</span>
-        <span style={{marginLeft:'auto',color:C.terra,fontWeight:700}}>Hoy ↑</span>
+        <span>Más activo</span>
       </div>
     </div>
   )
 }
 
-// ── Insignia individual ───────────────────────────────────────
+// ── Modal de cofre (celebración de insignia) ──────────────────
+function ChestModal({
+  insignia, onClose,
+}: {
+  insignia: any | null
+  onClose: () => void
+}) {
+  const [phase, setPhase] = useState<'closed'|'opening'|'open'>('closed')
+
+  useEffect(() => {
+    if (!insignia) return
+    const t1 = setTimeout(() => setPhase('opening'), 400)
+    const t2 = setTimeout(() => setPhase('open'), 1200)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [insignia])
+
+  if (!insignia) return null
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      animation: 'fadeIn 0.3s ease',
+    }} onClick={phase === 'open' ? onClose : undefined}>
+      <div style={{
+        background: 'linear-gradient(160deg,#1C1209,#2A1E15)',
+        borderRadius: 28, padding: '36px 32px',
+        maxWidth: 320, width: '90%', textAlign: 'center',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 2px rgba(250,199,117,0.3)',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Brillo de fondo */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: phase === 'open'
+            ? 'radial-gradient(circle at 50% 40%, rgba(250,199,117,0.12) 0%, transparent 70%)'
+            : 'transparent',
+          transition: 'background 0.8s ease', pointerEvents: 'none',
+        }}/>
+
+        {/* Cofre SVG */}
+        <div style={{
+          width: 120, height: 120,
+          margin: '0 auto 20px',
+          position: 'relative',
+          animation: phase === 'opening' ? 'chestShake 0.5s ease' : 'none',
+        }}>
+          {/* Cuerpo del cofre */}
+          <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg"
+            style={{ width: '100%', height: '100%' }}>
+            {/* Cuerpo */}
+            <rect x="8" y="45" width="104" height="55" rx="8" fill="#8B4E1F"/>
+            <rect x="8" y="45" width="104" height="55" rx="8" fill="url(#chestBody)"/>
+            {/* Tiras horizontales */}
+            <rect x="8" y="60" width="104" height="6" fill="#5C2E08"/>
+            <rect x="8" y="75" width="104" height="6" fill="#5C2E08"/>
+            {/* Cantoneras */}
+            <rect x="8" y="45" width="14" height="55" rx="4" fill="#C4763A" opacity="0.4"/>
+            <rect x="98" y="45" width="14" height="55" rx="4" fill="#C4763A" opacity="0.4"/>
+            {/* Cerradura */}
+            <rect x="48" y="62" width="24" height="18" rx="4" fill="#EF9F27"/>
+            <circle cx="60" cy="69" r="4" fill="#633806"/>
+            <rect x="58" y="71" width="4" height="6" rx="1" fill="#633806"/>
+            {/* Tapa (se levanta) */}
+            <g style={{
+              transformOrigin: '60px 45px',
+              transform: phase !== 'closed' ? 'rotateX(-35deg)' : 'rotateX(0deg)',
+              transition: 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+            }}>
+              <rect x="8" y="20" width="104" height="28" rx="8" fill="#A85D2A"/>
+              <rect x="8" y="20" width="104" height="28" rx="8" fill="url(#chestLid)"/>
+              <rect x="8" y="38" width="104" height="8" fill="#5C2E08"/>
+              <rect x="8" y="20" width="14" height="28" rx="4" fill="#C4763A" opacity="0.4"/>
+              <rect x="98" y="20" width="14" height="28" rx="4" fill="#C4763A" opacity="0.4"/>
+            </g>
+            {/* Gradientes */}
+            <defs>
+              <linearGradient id="chestBody" x1="60" y1="45" x2="60" y2="100" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#C4763A" stopOpacity="0.3"/>
+                <stop offset="1" stopColor="#5C2E08" stopOpacity="0.2"/>
+              </linearGradient>
+              <linearGradient id="chestLid" x1="60" y1="20" x2="60" y2="48" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="white" stopOpacity="0.12"/>
+                <stop offset="1" stopColor="black" stopOpacity="0.1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Insignia emergiendo */}
+          {phase === 'open' && (
+            <div style={{
+              position: 'absolute', top: -20, left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: 44,
+              animation: 'badgeEmerge 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+              filter: 'drop-shadow(0 4px 16px rgba(250,199,117,0.7))',
+            }}>
+              {insignia.icono}
+            </div>
+          )}
+
+          {/* Partículas de luz */}
+          {phase === 'open' && (
+            <div style={{ position: 'absolute', inset: -20, pointerEvents: 'none' }}>
+              {[0,60,120,180,240,300].map((deg, i) => (
+                <div key={i} style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: 4, height: 4, borderRadius: '50%',
+                  background: i % 2 === 0 ? '#FAC775' : '#EF9F27',
+                  animation: `particle${i} 0.8s ease-out`,
+                  transformOrigin: '0 0',
+                  transform: `rotate(${deg}deg) translate(60px, 0)`,
+                }}/>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Texto */}
+        <div style={{
+          opacity: phase === 'open' ? 1 : 0,
+          transform: phase === 'open' ? 'translateY(0)' : 'translateY(12px)',
+          transition: 'all 0.5s ease 0.2s',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.goldd, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+            ¡Nueva insignia!
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: 'white', marginBottom: 6 }}>
+            {insignia.nombre}
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 24, lineHeight: 1.5 }}>
+            {insignia.descripcion ?? '¡Lo has logrado!'}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%', padding: '13px', borderRadius: 50,
+              background: `linear-gradient(135deg,${C.goldd},${C.terra})`,
+              color: 'white', fontWeight: 900, fontSize: 14,
+              border: 'none', cursor: 'pointer', fontFamily: 'Poppins,sans-serif',
+              boxShadow: '0 5px 18px rgba(239,159,39,0.4)',
+            }}
+          >
+            ¡Genial! 🎉
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes chestShake {
+          0%,100% { transform:rotate(0deg) }
+          20% { transform:rotate(-4deg) }
+          40% { transform:rotate(4deg) }
+          60% { transform:rotate(-3deg) }
+          80% { transform:rotate(3deg) }
+        }
+        @keyframes badgeEmerge {
+          from { transform:translateX(-50%) translateY(30px) scale(0.3); opacity:0 }
+          to   { transform:translateX(-50%) translateY(0)    scale(1);   opacity:1 }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ── Insignia individual ────────────────────────────────────────
 function Badge({ insignia, earned }: { insignia: any; earned: boolean }) {
   const [hov, setHov] = useState(false)
   return (
@@ -321,6 +652,7 @@ export default function ProgresoPage() {
   const [insignias, setInsignias]   = useState<any[]>([])
   const [userInsignias, setUserInsignias] = useState<string[]>([])
   const [completedLessons, setCompletedLessons] = useState<any[]>([])
+  const [chestBadge, setChestBadge] = useState<any>(null)
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -345,7 +677,18 @@ export default function ProgresoPage() {
     setSkills(skillsRes.data ?? [])
     setSessions(sessionsRes.data ?? [])
     setInsignias(insigniasRes.data ?? [])
-    setUserInsignias((userInsRes.data ?? []).map((u: any) => u.insignia_id))
+    const earnedIds = (userInsRes.data ?? []).map((u: any) => u.insignia_id)
+    setUserInsignias(earnedIds)
+
+    // Detectar insignia recién ganada (no celebrada aun)
+    const celebrated = JSON.parse(localStorage.getItem('celebrated_badges') ?? '[]') as string[]
+    const allInsignias = insigniasRes.data ?? []
+    const newBadge = allInsignias.find((ins: any) =>
+      earnedIds.includes(ins.id) && !celebrated.includes(ins.id)
+    )
+    if (newBadge) {
+      setChestBadge(newBadge)
+    }
 
     const completedIds: string[] = progressRes.data?.completed_lessons ?? []
     const allLessons = lessonsRes.data ?? []
@@ -380,9 +723,38 @@ export default function ProgresoPage() {
     ? Math.round(sessions.reduce((s, x) => s + (x.accuracy ?? 0), 0) / sessions.length)
     : 0
 
+  const survey = progress?.onboarding_survey
+  const initialGeneralLabel = survey ? {
+    1: 'Principiante Absoluto',
+    2: 'Básico',
+    3: 'Intermedio',
+    4: 'Avanzado'
+  }[survey.general_level as number] || 'Principiante' : '—'
+
+  const initialSkillsAvg = survey
+    ? Math.round(((survey.skills?.writing || 1) + (survey.skills?.reading || 1) + (survey.skills?.listening || 1) + (survey.skills?.speaking || 1)) / 4 * 20)
+    : 0
+
+  const improvement = avgAccuracy > 0 && initialSkillsAvg > 0
+    ? avgAccuracy - initialSkillsAvg
+    : 0
+
   const skillScore = (key: string) => {
-    const s = skills.find(s => s.skill === key)
-    return s?.score ?? 0
+    // 1. Obtener puntaje base de la base de datos (Hamut'ay) si existe
+    const dbScore = skills.find(s => s.skill === key)?.score ?? 0
+
+    // 2. Calcular el progreso dinámico por lecciones completadas
+    const associatedLessons = SKILL_LESSONS[key] ?? []
+    if (associatedLessons.length === 0) return dbScore
+
+    // Obtener los IDs de lecciones completadas desde progress (user_progress en Supabase)
+    const userCompletedIds: string[] = progress?.completed_lessons ?? []
+    const completedInSkill = associatedLessons.filter(id => userCompletedIds.includes(id)).length
+
+    const lessonProgress = Math.round((completedInSkill / associatedLessons.length) * 100)
+
+    // Retornar el valor máximo entre el diagnóstico inicial (Hamut'ay) y su progreso dinámico actual
+    return Math.max(dbScore, lessonProgress)
   }
 
   const levelLabel: Record<string,string> = {
@@ -412,6 +784,18 @@ export default function ProgresoPage() {
 
   return (
     <div style={{fontFamily:'Poppins,sans-serif',maxWidth:660,margin:'0 auto',padding:'4px 16px 80px'}}>
+
+      {/* Modal de cofre de insignia */}
+      <ChestModal
+        insignia={chestBadge}
+        onClose={() => {
+          if (chestBadge) {
+            const prev = JSON.parse(localStorage.getItem('celebrated_badges') ?? '[]') as string[]
+            localStorage.setItem('celebrated_badges', JSON.stringify([...prev, chestBadge.id]))
+          }
+          setChestBadge(null)
+        }}
+      />
       
 
       {/* Header con volver */}
@@ -450,10 +834,68 @@ export default function ProgresoPage() {
         ))}
       </div>
 
-      {/* Gráfica de sesiones */}
+      {/* Comparativa de Autoevaluación contra rendimiento real */}
+      {survey && (
+        <Card style={{ animation: 'fadeUp 0.5s ease 0.02s both' }}>
+          <SectionTitle>📈 Comparativa de Crecimiento</SectionTitle>
+          <p style={{ fontSize: 12, color: C.graybb, marginBottom: 14, lineHeight: 1.5 }}>
+            Comparación de tu nivel estimado al registrarte frente a tu precisión real en los ejercicios:
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div style={{ padding: 12, background: C.grayl, borderRadius: 12 }}>
+              <p style={{ fontSize: 10, color: C.grayb, margin: '0 0 2px', fontWeight: 700 }}>NIVEL INICIAL ESTIMADO</p>
+              <p style={{ fontSize: 14, fontWeight: 900, color: C.brown, margin: 0 }}>{initialGeneralLabel}</p>
+              <p style={{ fontSize: 10, color: C.graybb, margin: '2px 0 0' }}>Autoevaluación: {initialSkillsAvg}%</p>
+            </div>
+            <div style={{ padding: 12, background: C.terral, borderRadius: 12 }}>
+              <p style={{ fontSize: 10, color: C.terrab, margin: '0 0 2px', fontWeight: 700 }}>NIVEL EN EL SENDERO ACTUAL</p>
+              <p style={{ fontSize: 14, fontWeight: 900, color: C.terra, margin: 0 }}>{levelLabel[currentLevel] || currentLevel}</p>
+              <p style={{ fontSize: 10, color: C.terrab, margin: '2px 0 0' }}>Precisión Real: {avgAccuracy}%</p>
+            </div>
+          </div>
+
+          {avgAccuracy > 0 ? (
+            <div style={{
+              padding: '10px 14px', borderRadius: 12,
+              background: improvement > 0 ? C.greenl : C.grayl,
+              border: `1.5px solid ${improvement > 0 ? C.greend : '#E8E4DE'}`,
+              display: 'flex', alignItems: 'center', gap: 10
+            }}>
+              <span style={{ fontSize: 18 }}>{improvement > 0 ? '🔥' : '📈'}</span>
+              <p style={{ fontSize: 12, fontWeight: 700, color: improvement > 0 ? C.greenb : C.brown, margin: 0, lineHeight: 1.4 }}>
+                {improvement > 0 
+                  ? `¡Estás rindiendo un +${improvement}% mejor que tu autoevaluación inicial! ¡Sigue así!`
+                  : `Tu precisión real es de ${avgAccuracy}%. Sigue practicando para superar tu autoevaluación inicial (${initialSkillsAvg}%).`
+                }
+              </p>
+            </div>
+          ) : (
+            <div style={{ padding: '10px 14px', borderRadius: 12, background: C.grayl, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🌱</span>
+              <p style={{ fontSize: 12, fontWeight: 700, color: C.brown, margin: 0 }}>
+                Completa tus primeros ejercicios en el sendero para ver tu comparativa de mejora.
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Gráfica de precisión con fechas */}
       <Card style={{animation:'fadeUp 0.5s ease 0.05s both'}}>
         <SectionTitle>Precisión por sesión</SectionTitle>
         <SessionChart sessions={sessions}/>
+      </Card>
+
+      {/* Gráfica de XP por día */}
+      <Card style={{animation:'fadeUp 0.5s ease 0.08s both'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+          <SectionTitle>XP ganado — últimos 14 días</SectionTitle>
+          <span style={{fontSize:10,padding:'3px 8px',borderRadius:20,fontWeight:700,background:C.goldl,color:C.goldb}}>
+            ⚡ {sessions.reduce((s,x) => s + (x.xp_gained ?? 0), 0)} XP total
+          </span>
+        </div>
+        <XPTimelineChart sessions={sessions}/>
       </Card>
 
       {/* Barras de habilidades */}
@@ -549,6 +991,7 @@ export default function ProgresoPage() {
             {completedLessons.map(({id, lesson, session}) => {
               const acc = session?.accuracy ?? null
               const xp  = session?.xp_gained ?? lesson?.xp_reward ?? 0
+              const completedAt = session?.completed_at
               const color = acc === null ? C.grayb : acc >= 80 ? C.green : acc >= 50 ? C.goldd : C.terra
               const levelColors: Record<string,string> = {
                 basico:'#E1F5EE', intermedio:'#EEEDFE', avanzado:'#FFF0E6', maestria:'#FAEEDA',
@@ -566,6 +1009,11 @@ export default function ProgresoPage() {
                     </p>
                     <p style={{fontSize:10,color:C.graybb,margin:'2px 0 0'}}>
                       +{xp} XP{acc !== null ? ` · ${session.score}/${session.total} correctas` : ''}
+                      {completedAt && (
+                        <span style={{marginLeft:6,opacity:0.7}}>
+                          · {new Date(completedAt).toLocaleDateString('es-PE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+                        </span>
+                      )}
                     </p>
                   </div>
                   {acc !== null && (

@@ -5,6 +5,7 @@ export type NodeStatus = 'done' | 'active' | 'locked'
 export interface Profile {
   id: string; username: string; full_name: string; avatar_url?: string
   level: Nivel; xp: number; streak_days: number; last_activity: string; created_at: string
+  age?: number | null
 }
 
 export interface UserProgress {
@@ -14,6 +15,7 @@ export interface UserProgress {
   xp_total: number; xp_today: number; streak_days: number
   streak_last_date: string | null; tinkus_completed: string[]
   hamutay_available: boolean; created_at: string; updated_at: string
+  onboarding_survey?: any
 }
 
 export interface UserSkillProgress {

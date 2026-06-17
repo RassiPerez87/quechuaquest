@@ -30,6 +30,185 @@ function shortId(id: string) {
            .replace('avanzado-','A-').replace('maestria-','M-')
 }
 
+// ── Barra de racha semanal (Lunes–Domingo) ────────────────
+function StreakWeekBar({
+  streakDays, activeDays,
+}: {
+  streakDays: number
+  activeDays: Set<string>
+}) {
+  const DAY_LABELS = ['L','M','M','J','V','S','D']
+  const today = new Date()
+  const todayUTC = today.toISOString().split('T')[0]
+
+  // Calcular el lunes de esta semana
+  const dayOfWeek = today.getDay() // 0=Dom
+  const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const mondayDate = new Date(today)
+  mondayDate.setDate(today.getDate() + diffToMon)
+
+  const weekDays = DAY_LABELS.map((label, i) => {
+    const d = new Date(mondayDate)
+    d.setDate(mondayDate.getDate() + i)
+    const dateStr = d.toISOString().split('T')[0]
+    const isToday   = dateStr === todayUTC
+    const isPast    = dateStr < todayUTC
+    const isActive  = activeDays.has(dateStr)
+    const isFuture  = dateStr > todayUTC
+    return { label, dateStr, isToday, isPast, isActive, isFuture }
+  })
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)',
+      borderRadius: 20, border: `1.5px solid rgba(196,118,58,0.18)`,
+      padding: '14px 16px', marginBottom: 14,
+    }}>
+      {/* Header: llama + número */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 26 }}>🔥</span>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: C.terra, lineHeight: 1 }}>
+              {streakDays}
+              <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 4 }}>días de racha</span>
+            </div>
+            <div style={{ fontSize: 10, color: C.graybb, marginTop: 1 }}>¡Sigue aprendiendo cada día!</div>
+          </div>
+        </div>
+        {streakDays >= 7 && (
+          <div style={{
+            background: `linear-gradient(135deg,${C.terra},#E8943A)`,
+            color: 'white', fontSize: 10, fontWeight: 800,
+            padding: '4px 10px', borderRadius: 20,
+            boxShadow: '0 3px 10px rgba(196,118,58,0.35)',
+          }}>🏆 Racha larga</div>
+        )}
+      </div>
+
+      {/* Días de la semana */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+        {weekDays.map(({ label, isToday, isActive, isFuture }) => (
+          <div key={label + Math.random()} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{
+              fontSize: 9, fontWeight: 800, color: isToday ? C.terra : C.grayb,
+              textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>{label}</div>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+              background: isActive
+                ? `linear-gradient(135deg,${C.goldd},${C.terra})`
+                : isToday
+                ? `rgba(196,118,58,0.12)`
+                : '#F1EFE8',
+              border: isToday
+                ? `2px solid ${C.terra}`
+                : isActive ? `2px solid ${C.goldd}` : '2px solid transparent',
+              boxShadow: isActive ? `0 3px 10px rgba(239,159,39,0.35)` : 'none',
+              transition: 'all 0.3s',
+            }}>
+              {isActive ? '🔥' : isToday ? '💧' : isFuture ? '○' : '✓'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Panel de misiones diarias ───────────────────────────────
+const MISSIONS = [
+  { key: 'lessons',   label: 'Completa 1 lección',        goal: 1, icon: '📖', color: '#534AB7', bg: '#EEEDFE' },
+  { key: 'exercises', label: 'Practica 3 ejercicios',      goal: 3, icon: '⚡', color: '#C4763A', bg: '#FFF0E6' },
+  { key: 'minutes',   label: 'Aprende durante 5 minutos',  goal: 5, icon: '⏱️', color: '#1D9E75', bg: '#E1F5EE' },
+]
+
+function DailyMissions({ missions }: { missions: { lessons: number; exercises: number; minutes: number } }) {
+  const xpEarned = (
+    (missions.lessons   >= 1 ? 50 : 0) +
+    (missions.exercises >= 3 ? 30 : 0) +
+    (missions.minutes   >= 5 ? 20 : 0)
+  )
+  const allDone = MISSIONS.every(m => (missions as any)[m.key] >= m.goal)
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)',
+      borderRadius: 20, border: `1.5px solid rgba(196,118,58,0.18)`,
+      padding: '14px 16px', marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.brown }}>Misiones de hoy</div>
+          <div style={{ fontSize: 10, color: C.graybb }}>Completa las 3 para ganar XP extra</div>
+        </div>
+        <div style={{
+          fontSize: 12, fontWeight: 900,
+          color: allDone ? C.greenb : C.goldb,
+          background: allDone ? C.greenl : C.goldl,
+          padding: '4px 10px', borderRadius: 20,
+          border: `1.5px solid ${allDone ? C.greend : C.gold}`,
+        }}>
+          {allDone ? '🎉 +100 XP' : `+${xpEarned} XP`}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {MISSIONS.map(m => {
+          const current = Math.min((missions as any)[m.key] ?? 0, m.goal)
+          const done = current >= m.goal
+          const pct = Math.min((current / m.goal) * 100, 100)
+          return (
+            <div key={m.key} style={{
+              borderRadius: 14, padding: '10px 13px',
+              background: done ? m.bg : 'rgba(241,239,232,0.6)',
+              border: `1.5px solid ${done ? m.color + '55' : '#E5E3DB'}`,
+              transition: 'all 0.3s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 15 }}>{m.icon}</span>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: done ? m.color : C.brown,
+                  }}>{m.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: done ? m.color : C.graybb }}>
+                    {current}/{m.goal}
+                  </span>
+                  {done ? (
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: m.color, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 12,
+                    }}>✓</div>
+                  ) : (
+                    <div style={{ fontSize: 16 }}>🎁</div>
+                  )}
+                </div>
+              </div>
+              {/* Barra de progreso */}
+              <div style={{ height: 8, borderRadius: 4, background: '#E5E3DB', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 4,
+                  width: `${pct}%`,
+                  background: done
+                    ? `linear-gradient(90deg,${m.color},${m.color}CC)`
+                    : `linear-gradient(90deg,${m.color}88,${m.color}55)`,
+                  transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+                }}/>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Patrón andino ─────────────────────────────────────────────
 function AndinoPattern() {
   return (
@@ -433,23 +612,63 @@ function PathLine({ done, short }: { done:boolean; short?:boolean }) {
 // ── Dashboard ─────────────────────────────────────────────────
 export default function Dashboard() {
   const router = useRouter()
-  const [profile, setProfile]   = useState<any>(null)
-  const [progress, setProgress] = useState<UserProgress | null>(null)
-  const [nodes, setNodes]       = useState<PathNode[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [profile, setProfile]     = useState<any>(null)
+  const [progress, setProgress]   = useState<UserProgress | null>(null)
+  const [nodes, setNodes]         = useState<PathNode[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [activeDays, setActiveDays] = useState<Set<string>>(new Set())
+  const [missions, setMissions]   = useState({ lessons: 0, exercises: 0, minutes: 0 })
 
   const load = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth'); return }
-    const [pr, pg, ls] = await Promise.all([
+
+    // Calcular rango de la semana actual
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + diffToMon)
+    const weekStart = monday.toISOString().split('T')[0]
+
+    const [pr, pg, ls, sessions, missionsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       getUserProgress(user.id),
       getAllLessons(),
+      supabase.from('exercise_sessions')
+        .select('completed_at')
+        .eq('user_id', user.id)
+        .gte('completed_at', weekStart),
+      supabase.from('user_progress')
+        .select('missions_today, missions_date')
+        .eq('user_id', user.id)
+        .single(),
     ])
+
+    if (pr.data?.role !== 'admin' && pg && !pg.onboarding_survey) {
+      router.push('/placement')
+      return
+    }
+
     setProfile(pr.data)
     setProgress(pg)
     if (pg && ls.length > 0) setNodes(buildPathNodes(ls, pg))
+
+    // Días activos de esta semana
+    const daysSet = new Set<string>()
+    ;(sessions.data ?? []).forEach((s: any) => {
+      if (s.completed_at) daysSet.add(s.completed_at.split('T')[0])
+    })
+    setActiveDays(daysSet)
+
+    // Misiones del día
+    const todayStr = today.toISOString().split('T')[0]
+    const mData = missionsRes.data
+    if (mData?.missions_date === todayStr && mData?.missions_today) {
+      setMissions(mData.missions_today as any)
+    }
+
     setLoading(false)
   }, [router])
 
@@ -498,9 +717,6 @@ export default function Dashboard() {
       lockedLevels.add(level)
     }
   })
-  
-  // Contador de nodos mostrados por nivel (para limitar nodos en niveles con neblina)
-  const shownByLevel: Record<string,number> = {}
 
   return (
     <div style={{fontFamily:'Poppins,sans-serif',maxWidth:580,margin:'0 auto',padding:'4px 16px 100px',position:'relative'}}>
@@ -509,10 +725,9 @@ export default function Dashboard() {
       </div>
 
       <div style={{position:'relative',zIndex:1}}>
-        
 
         {/* Saludo */}
-        <div style={{marginBottom:20,paddingTop:4,animation:'fadeSlideUp 0.4s ease'}}>
+        <div style={{marginBottom:16,paddingTop:4,animation:'fadeSlideUp 0.4s ease'}}>
           <h1 style={{fontSize:24,fontWeight:900,color:C.brown,marginBottom:3,lineHeight:1.2}}>
             ¡Allin p'unchaw, {firstName}! 🦙
           </h1>
@@ -521,24 +736,25 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:28,animation:'fadeSlideUp 0.5s ease'}}>
-          <div style={{padding:'13px 14px',borderRadius:16,background:'#FFF0E6',border:'1.5px solid #F4B885'}}>
-            <p style={{fontSize:10,color:C.graybb,margin:'0 0 2px',fontWeight:700}}>🔥 Racha</p>
-            <p style={{fontSize:22,fontWeight:900,color:C.terra,margin:0,lineHeight:1}}>
-              {streakDays}<span style={{fontSize:11,fontWeight:600}}> días</span>
-            </p>
-          </div>
+        {/* Racha semanal visual */}
+        <StreakWeekBar streakDays={streakDays} activeDays={activeDays}/>
+
+        {/* Misiones diarias */}
+        <DailyMissions missions={missions}/>
+
+        {/* Stats XP + Nivel */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:28,animation:'fadeSlideUp 0.5s ease'}}>
           <div style={{padding:'13px 14px',borderRadius:16,background:C.goldl,border:`1.5px solid ${C.gold}`}}>
-            <p style={{fontSize:10,color:C.graybb,margin:'0 0 2px',fontWeight:700}}>⚡ XP</p>
+            <p style={{fontSize:10,color:C.graybb,margin:'0 0 2px',fontWeight:700}}>⚡ XP Total</p>
             <p style={{fontSize:22,fontWeight:900,color:C.goldb,margin:0,lineHeight:1}}>{xpTotal.toLocaleString()}</p>
           </div>
           <div style={{padding:'13px 14px',borderRadius:16,background:C.greenl,border:`1.5px solid ${C.green}`}}>
-            <p style={{fontSize:10,color:C.graybb,margin:'0 0 2px',fontWeight:700}}>📚 Nivel</p>
+            <p style={{fontSize:10,color:C.graybb,margin:'0 0 2px',fontWeight:700}}>📚 Nivel actual</p>
             <p style={{fontSize:14,fontWeight:900,color:C.greenb,margin:0,lineHeight:1.2}}>{getLevelLabel(currentLevel)}</p>
             <p style={{fontSize:9,color:C.greenb,margin:'3px 0 0',opacity:0.8}}>{completedN} lecciones</p>
           </div>
         </div>
+
 
         {/* Leyenda pequeña */}
         <div style={{

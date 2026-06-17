@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
@@ -17,17 +17,78 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // Limpiar sesión existente al entrar a la página de autenticación
+  useEffect(() => {
+    const clearSession = async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        await supabase.auth.signOut()
+      }
+    }
+    clearSession()
+  }, [])
+
   const [form, setForm] = useState({
     email: '',
     password: '',
     username: '',
-    full_name: ''
+    full_name: '',
+    age: ''
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setError('')
     setSuccess('')
+  }
+
+  // ✅ NUEVA FUNCIÓN: Sincronizar metadatos del usuario con la tabla profiles
+  const syncProfileMetadata = async (user: any) => {
+    const supabase = createClient()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    const username = user.user_metadata?.username || user.user_metadata?.user_name || 'Usuario'
+    const fullName = user.user_metadata?.full_name || 'Usuario'
+    const age = user.user_metadata?.age || null
+
+    if (!profile) {
+      const insertData: any = {
+        id: user.id,
+        username,
+        full_name: fullName,
+        role: 'student',
+        xp: 0,
+        level: 'basico',
+        total_lessons_completed: 0,
+        age: age ? parseInt(String(age)) : null,
+        created_at: new Date().toISOString()
+      }
+      const { error: insErr } = await supabase.from('profiles').insert(insertData)
+      if (insErr && insErr.message.includes("column of 'profiles' in the schema cache")) {
+        delete insertData.age
+        await supabase.from('profiles').insert(insertData)
+      }
+    } else {
+      const updates: any = {}
+      if (!profile.username || profile.username === 'Usuario') updates.username = username
+      if (!profile.full_name || profile.full_name === 'Usuario') updates.full_name = fullName
+      if (profile.age === null && age !== null) updates.age = parseInt(String(age))
+
+      if (Object.keys(updates).length > 0) {
+        const { error: updErr } = await supabase.from('profiles').update(updates).eq('id', user.id)
+        if (updErr && updErr.message.includes("column of 'profiles' in the schema cache")) {
+          delete updates.age
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('profiles').update(updates).eq('id', user.id)
+          }
+        }
+      }
+    }
   }
 
   // ✅ NUEVA FUNCIÓN: Detectar rol y redirigir
@@ -58,7 +119,7 @@ export default function AuthPage() {
 
     try {
       if (mode === 'register') {
-        if (!form.username || !form.full_name || !form.email || !form.password) {
+        if (!form.username || !form.full_name || !form.email || !form.password || !form.age) {
           setError('Por favor completa todos los campos')
           setLoading(false)
           return
@@ -76,6 +137,7 @@ export default function AuthPage() {
             data: {
               username: form.username,
               full_name: form.full_name,
+              age: form.age ? parseInt(form.age) : null,
             },
           },
         })
@@ -95,8 +157,8 @@ export default function AuthPage() {
           return
         }
 
-        // ✅ CAMBIO: Detectar rol antes de redirigir
         if (data.session && data.user) {
+          await syncProfileMetadata(data.user)
           await redirectBasedOnRole(data.user.id)
           return
         }
@@ -125,15 +187,16 @@ export default function AuthPage() {
         }
 
         if (data.session && data.user) {
-  // 🆕 Trackear sesión en InfluxDB
-  try {
-    const { trackUserSession } = await import('@/lib/influx')
-    await trackUserSession(data.user.id, 'web')
-  } catch (influxError) {
-    console.error('⚠️ InfluxDB session error:', influxError)
-  }
-  await redirectBasedOnRole(data.user.id)
-}
+          // 🆕 Trackear sesión en InfluxDB
+          try {
+            const { trackUserSession } = await import('@/lib/influx')
+            await trackUserSession(data.user.id, 'web')
+          } catch (influxError) {
+            console.error('⚠️ InfluxDB session error:', influxError)
+          }
+          await syncProfileMetadata(data.user)
+          await redirectBasedOnRole(data.user.id)
+        }
       }
     } catch (err) {
       setError('Ocurrió un error inesperado. Intenta de nuevo.')
@@ -242,6 +305,27 @@ export default function AuthPage() {
                     type="text"
                     placeholder="@tunombredeusuario"
                     value={form.username}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: 12, fontSize: 14,
+                      border: '2px solid #F0E4D8', background: '#FEFAF5', color: '#3D2B1F',
+                      outline: 'none', boxSizing: 'border-box', fontFamily: 'Poppins, sans-serif',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#C4763A'}
+                    onBlur={e => e.target.style.borderColor = '#F0E4D8'}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#3D2B1F', marginBottom: 6 }}>
+                    Edad
+                  </label>
+                  <input
+                    name="age"
+                    type="number"
+                    placeholder="Tu edad"
+                    value={form.age}
                     onChange={handleChange}
                     style={{
                       width: '100%', padding: '12px 16px', borderRadius: 12, fontSize: 14,

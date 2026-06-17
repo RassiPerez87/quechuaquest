@@ -63,11 +63,15 @@ export default function AjustesPage() {
     if (!userId) return
     setSaving(true)
     const supabase = createClient()
-    await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').update({
       full_name: fullName,
       username: username,
     }).eq('id', userId)
     setSaving(false)
+    if (error) {
+      alert(`Error al actualizar el perfil: ${error.message}`)
+      return
+    }
     showSuccess('¡Perfil actualizado correctamente!')
   }
 

@@ -3,6 +3,22 @@
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Users, BookOpen, Award, TrendingUp, Activity, UserCheck } from 'lucide-react'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js'
+import { Doughnut } from 'react-chartjs-2'
+
+ChartJS.register(
+  CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement
+)
 
 interface Stats {
   total_users: number
@@ -48,20 +64,48 @@ export default function AdminDashboard() {
       setStats(statsData)
 
       const { data: activityData, error: activityError } = await supabase
-        .from('progreso_lecciones')
-        .select(`id, completed_at, user_id, profiles!inner(username)`)
-        .eq('completado', true)
+        .from('exercise_sessions')
+        .select(`
+          id,
+          completed_at,
+          user_id,
+          lesson_id,
+          xp_gained,
+          score,
+          total,
+          profiles(username)
+        `)
         .order('completed_at', { ascending: false })
         .limit(10)
 
       if (activityError) throw activityError
       
-      const formattedActivity = activityData?.map((item: any) => ({
-        id: item.id,
-        user_name: item.profiles.username,
-        action: 'Completó una lección',
-        created_at: item.completed_at
-      })) || []
+      let formattedActivity: RecentActivity[] = []
+      if (activityData && activityData.length > 0) {
+        const lessonIds = Array.from(new Set(activityData.map(a => a.lesson_id).filter(Boolean)))
+        let lessonsMap: Record<string, any> = {}
+        if (lessonIds.length > 0) {
+          const { data: lessonsData } = await supabase
+            .from('lessons')
+            .select('id, title_es, title')
+            .in('id', lessonIds)
+          if (lessonsData) {
+            lessonsData.forEach(l => {
+              lessonsMap[l.id] = l
+            })
+          }
+        }
+
+        formattedActivity = activityData.map((item: any) => {
+          const lessonTitle = lessonsMap[item.lesson_id]?.title_es || lessonsMap[item.lesson_id]?.title || 'ejercicio'
+          return {
+            id: item.id,
+            user_name: item.profiles?.username || 'Usuario',
+            action: `Completó lección: ${lessonTitle} (+${item.xp_gained || 0} XP · ${item.score}/${item.total})`,
+            created_at: item.completed_at
+          }
+        })
+      }
 
       setRecentActivity(formattedActivity)
     } catch (error) {
@@ -260,8 +304,8 @@ export default function AdminDashboard() {
                       {activity.action}
                     </p>
                   </div>
-                  <span style={{ fontSize: 11, color: '#B8A898' }}>
-                    {new Date(activity.created_at).toLocaleDateString('es-ES')}
+                  <span style={{ fontSize: 11, color: '#B8A898', whiteSpace: 'nowrap' }}>
+                    {activity.created_at ? new Date(activity.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                   </span>
                 </div>
               ))
@@ -295,87 +339,138 @@ export default function AdminDashboard() {
           }}>
             Métricas de Rendimiento
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Promedio de Progreso */}
-            <div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 8
-              }}>
-                <span style={{ fontSize: 13, color: '#6B3F2A', fontWeight: 600 }}>
-                  Promedio de Progreso
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#C4763A' }}>
-                  {stats?.avg_points_per_lesson?.toFixed(1) || '0'}%
-                </span>
-              </div>
-              <div style={{
-                width: '100%',
-                height: 8,
-                background: '#F0E4D8',
-                borderRadius: 50,
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  width: `${Math.min((stats?.avg_points_per_lesson || 0), 100)}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #C4763A, #D4A853)',
-                  borderRadius: 50,
-                  transition: 'width 0.5s ease'
-                }} />
-              </div>
-            </div>
+          {(() => {
+            const avgProgress = stats?.avg_points_per_lesson ?? 0
+            const activeRate = stats && stats.total_students > 0 
+              ? (stats.active_students / stats.total_students) * 100 
+              : 0
 
-            {/* Tasa de Participación */}
-            <div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 8
-              }}>
-                <span style={{ fontSize: 13, color: '#6B3F2A', fontWeight: 600 }}>
-                  Tasa de Participación
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#388E3C' }}>
-                  {stats && stats.total_students > 0
-                    ? ((stats.active_students / stats.total_students) * 100).toFixed(1)
-                    : '0'}%
-                </span>
-              </div>
-              <div style={{
-                width: '100%',
-                height: 8,
-                background: '#F0E4D8',
-                borderRadius: 50,
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  width: `${stats && stats.total_students > 0 
-                    ? (stats.active_students / stats.total_students) * 100 
-                    : 0}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #388E3C, #66BB6A)',
-                  borderRadius: 50,
-                  transition: 'width 0.5s ease'
-                }} />
-              </div>
-            </div>
+            const progressData = {
+              labels: ['Completado', 'Restante'],
+              datasets: [{
+                data: [Math.min(avgProgress, 100), Math.max(0, 100 - Math.min(avgProgress, 100))],
+                backgroundColor: ['#C4763A', '#F0E4D8'],
+                borderWidth: 0
+              }]
+            }
 
-            <div style={{
-              paddingTop: 16,
-              borderTop: '1px solid #F5EDE4',
-              marginTop: 8
-            }}>
-              <p style={{
-                fontSize: 11,
-                color: '#B8A898',
-                textAlign: 'center'
-              }}>
-                Estadísticas actualizadas en tiempo real
-              </p>
-            </div>
-          </div>
+            const progressOptions = {
+              cutout: '75%',
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(42,30,21,0.95)',
+                  titleColor: '#FAC775',
+                  bodyColor: '#F1EFE8',
+                  padding: 8,
+                  cornerRadius: 6,
+                  displayColors: false,
+                  callbacks: {
+                    label: (ctx: any) => {
+                      const index = ctx.dataIndex
+                      if (index === 0) return `Completado: ${avgProgress.toFixed(1)}%`
+                      return `Restante: ${(100 - Math.min(avgProgress, 100)).toFixed(1)}%`
+                    }
+                  }
+                }
+              }
+            }
+
+            const participationData = {
+              labels: ['Activos', 'Inactivos'],
+              datasets: [{
+                data: [stats?.active_students || 0, Math.max(0, (stats?.total_students || 0) - (stats?.active_students || 0))],
+                backgroundColor: ['#1D9E75', '#F0E4D8'],
+                borderWidth: 0
+              }]
+            }
+
+            const participationOptions = {
+              cutout: '75%',
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(42,30,21,0.95)',
+                  titleColor: '#FAC775',
+                  bodyColor: '#F1EFE8',
+                  padding: 8,
+                  cornerRadius: 6,
+                  displayColors: false,
+                  callbacks: {
+                    label: (ctx: any) => {
+                      const index = ctx.dataIndex
+                      if (index === 0) return `Activos: ${stats?.active_students || 0}`
+                      return `Inactivos: ${Math.max(0, (stats?.total_students || 0) - (stats?.active_students || 0))}`
+                    }
+                  }
+                }
+              }
+            }
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', gap: 16, flexWrap: 'wrap', padding: '10px 0' }}>
+                  {/* Gráfica 1: Promedio de Progreso */}
+                  <div style={{ textAlign: 'center', flex: 1, minWidth: 120 }}>
+                    <p style={{ fontSize: 13, color: '#6B3F2A', fontWeight: 700, marginBottom: 12, fontFamily: 'Poppins, sans-serif' }}>
+                      Promedio de Progreso
+                    </p>
+                    <div style={{ position: 'relative', width: 110, height: 110, margin: '0 auto' }}>
+                      <Doughnut data={progressData} options={progressOptions} />
+                      <div style={{
+                        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
+                      }}>
+                        <span style={{ fontSize: 15, fontWeight: 900, color: '#C4763A', fontFamily: 'Poppins, sans-serif' }}>
+                          {avgProgress.toFixed(1)}%
+                        </span>
+                        <span style={{ fontSize: 8, color: '#9B8070', fontWeight: 800, fontFamily: 'Poppins, sans-serif', letterSpacing: '0.05em' }}>PROGRESO</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gráfica 2: Tasa de Participación */}
+                  <div style={{ textAlign: 'center', flex: 1, minWidth: 120 }}>
+                    <p style={{ fontSize: 13, color: '#6B3F2A', fontWeight: 700, marginBottom: 12, fontFamily: 'Poppins, sans-serif' }}>
+                      Tasa de Participación
+                    </p>
+                    <div style={{ position: 'relative', width: 110, height: 110, margin: '0 auto' }}>
+                      <Doughnut data={participationData} options={participationOptions} />
+                      <div style={{
+                        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
+                      }}>
+                        <span style={{ fontSize: 15, fontWeight: 900, color: '#1D9E75', fontFamily: 'Poppins, sans-serif' }}>
+                          {activeRate.toFixed(1)}%
+                        </span>
+                        <span style={{ fontSize: 8, color: '#9B8070', fontWeight: 800, fontFamily: 'Poppins, sans-serif', letterSpacing: '0.05em' }}>ACTIVOS</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  paddingTop: 16,
+                  borderTop: '1px solid #F5EDE4',
+                  marginTop: 8
+                }}>
+                  <p style={{
+                    fontSize: 11,
+                    color: '#B8A898',
+                    textAlign: 'center',
+                    fontFamily: 'Poppins, sans-serif',
+                    fontWeight: 600
+                  }}>
+                    Estadísticas actualizadas en tiempo real
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
 

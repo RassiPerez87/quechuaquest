@@ -325,11 +325,86 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      // Sincronizar metadatos de autenticación con la tabla profiles
+      const username = user.user_metadata?.username || user.user_metadata?.user_name || 'Usuario'
+      const fullName = user.user_metadata?.full_name || 'Usuario'
+      const age = user.user_metadata?.age || null
+
       const [pr, pg] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('user_progress').select('*').eq('user_id', user.id).single(),
       ])
-      setProfile(pr.data)
+
+      let currentProfile = pr.data
+      if (!pr.data) {
+        const insertData: any = {
+          id: user.id,
+          username,
+          full_name: fullName,
+          role: 'student',
+          xp: 0,
+          level: 'basico',
+          total_lessons_completed: 0,
+          age: age ? parseInt(String(age)) : null,
+          created_at: new Date().toISOString()
+        }
+
+        const { data: newProfile, error: insErr } = await supabase
+          .from('profiles')
+          .insert(insertData)
+          .select()
+          .single()
+        
+        if (insErr && insErr.message.includes("column of 'profiles' in the schema cache")) {
+          delete insertData.age
+          const { data: retriedProfile } = await supabase
+            .from('profiles')
+            .insert(insertData)
+            .select()
+            .single()
+          currentProfile = retriedProfile
+        } else {
+          currentProfile = newProfile
+        }
+      } else if (
+        !pr.data.username || 
+        !pr.data.full_name || 
+        pr.data.username === 'Usuario' || 
+        pr.data.full_name === 'Usuario' || 
+        (pr.data.age === null && age !== null)
+      ) {
+        const updates: any = {}
+        if (!pr.data.username || pr.data.username === 'Usuario') updates.username = username
+        if (!pr.data.full_name || pr.data.full_name === 'Usuario') updates.full_name = fullName
+        if (pr.data.age === null && age !== null) updates.age = parseInt(String(age))
+
+        const { data: updatedProfile, error: updErr } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select()
+          .single()
+        
+        if (updErr && updErr.message.includes("column of 'profiles' in the schema cache")) {
+          delete updates.age
+          if (Object.keys(updates).length > 0) {
+            const { data: retriedProfile } = await supabase
+              .from('profiles')
+              .update(updates)
+              .eq('id', user.id)
+              .select()
+              .single()
+            currentProfile = retriedProfile
+          } else {
+            currentProfile = pr.data
+          }
+        } else {
+          currentProfile = updatedProfile
+        }
+      }
+
+      setProfile(currentProfile)
       setProgress(pg.data)
     }
     load()

@@ -466,6 +466,7 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
   const [wrongPair, setWrongPair]   = useState<string|null>(null)
   const [leftItems, setLeftItems]   = useState<string[]>([])
   const [rightItems, setRightItems] = useState<string[]>([])
+  const [streak, setStreak]         = useState(0)  // racha de correctas consecutivas
 
   const ex = exercises[current]
 
@@ -546,7 +547,12 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
     const isOk = correct || accepted
     setIsCorrect(isOk)
     setSubmitted(true)
-    if (isOk) setScore(s => s + 1)
+    if (isOk) {
+      setScore(s => s + 1)
+      setStreak(s => s + 1)
+    } else {
+      setStreak(0)  // romper racha de correctas
+    }
   }
 
   const handleNext = () => {
@@ -558,6 +564,7 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
     } else {
       setCurrent(c => c + 1)
       setSubmitted(false)
+      // No resetear streak — se mantiene entre preguntas
     }
   }
 
@@ -812,10 +819,25 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
               padding:'13px 17px', borderRadius:14, marginBottom:16,
               background: isCorrect ? '#E8F5E2' : '#FFF0F0',
               border:`1.5px solid ${isCorrect ? '#A8D898' : '#FFB8B8'}`,
+              animation: isCorrect ? 'correctPop 0.4s cubic-bezier(0.34,1.56,0.64,1)' : 'shake 0.4s ease',
             }}>
-              <p style={{ fontSize:15, fontWeight:900, color: isCorrect ? '#2D7A1F' : '#C0392B', margin:'0 0 4px' }}>
-                {isCorrect ? '✅ ¡Allillanmi! ¡Correcto!' : '❌ Mana allinchu. ¡Ama llakichu!'}
-              </p>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <p style={{ fontSize:15, fontWeight:900, color: isCorrect ? '#2D7A1F' : '#C0392B', margin:'0 0 4px' }}>
+                  {isCorrect ? '✅ ¡Allillanmi! ¡Correcto!' : '❌ Mana allinchu. ¡Ama llakichu!'}
+                </p>
+                {/* Racha de correctas consecutivas */}
+                {isCorrect && streak >= 2 && (
+                  <div style={{
+                    display:'flex', alignItems:'center', gap:4,
+                    padding:'3px 10px', borderRadius:20,
+                    background:'#FF8C00', color:'white',
+                    fontSize:11, fontWeight:900,
+                    animation:'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                  }}>
+                    🔥 ×{streak}
+                  </div>
+                )}
+              </div>
               {(ex.explanation || ex.explicacion) && (
                 <p style={{ fontSize:12, color:'#6B3F2A', lineHeight:1.5, margin:0 }}>
                   {ex.explanation || ex.explicacion}
@@ -857,17 +879,42 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
 // ═══════════════════════════════════════════════════════════════
 // FASE 3 — PANTALLA DE VICTORIA
 // ═══════════════════════════════════════════════════════════════
-function VictoryPhase({ lesson, score, total, xp, streak, tinkuTriggered, onGoToPath }: {
+function VictoryPhase({ lesson, score, total, xp, streak, tinkuTriggered, newBadge, onGoToPath }: {
   lesson: any; score: number; total: number; xp: number
-  streak: number; tinkuTriggered: boolean; onGoToPath: () => void
+  streak: number; tinkuTriggered: boolean
+  newBadge: any | null
+  onGoToPath: () => void
 }) {
   const pct = Math.round((score / total) * 100)
   const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🌟' : pct >= 50 ? '💪' : '📚'
   const msg   = pct >= 90 ? '¡Excelente! ¡Sumaq!' : pct >= 70 ? '¡Muy bien! ¡Allillanmi!' : pct >= 50 ? '¡Bien! ¡Ama llakichu!' : '¡Sigue practicando!'
+  const [showChest, setShowChest] = useState(!!newBadge)
+
+  // Confetti
+  const confettiColors = ['#FAC775','#C4763A','#1D9E75','#534AB7','#EF9F27','#fff']
+  const dots = pct >= 70 ? Array.from({length: 16}, (_, i) => i) : []
 
   return (
-    <div style={{ maxWidth:520, margin:'0 auto', padding:'40px 16px' }}>
-      
+    <div style={{ maxWidth:520, margin:'0 auto', padding:'40px 16px', position:'relative' }}>
+
+      {/* Confetti si pct >= 70 */}
+      {dots.map(i => (
+        <div key={i} style={{
+          position:'fixed',
+          top: `${Math.random() * 30}%`,
+          left: `${(i / 16) * 100}%`,
+          width: 8, height: 8,
+          borderRadius: i % 3 === 0 ? '50%' : 2,
+          background: confettiColors[i % confettiColors.length],
+          animation: `confettiFall ${1.5 + (i % 4) * 0.3}s ease-in ${i * 0.08}s both`,
+          pointerEvents:'none', zIndex: 50,
+        }}/>
+      ))}
+
+      {/* Modal cofre si hay nueva insignia */}
+      {showChest && newBadge && (
+        <ChestModalMini badge={newBadge} onClose={() => setShowChest(false)}/>
+      )}
 
       {/* Emoji grande animado */}
       <div style={{ textAlign:'center', marginBottom:24, animation:'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -950,6 +997,87 @@ function VictoryPhase({ lesson, score, total, xp, streak, tinkuTriggered, onGoTo
       }}>
         🔄 Repetir lección
       </button>
+
+      <style>{`
+        @keyframes confettiFall {
+          from { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+          to   { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes correctPop {
+          0%   { transform: scale(0.96); }
+          60%  { transform: scale(1.02); }
+          100% { transform: scale(1); }
+        }
+        @keyframes popIn {
+          from { transform: scale(0.5); opacity:0; }
+          to   { transform: scale(1);   opacity:1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(12px); opacity:0; }
+          to   { transform: translateY(0);    opacity:1; }
+        }
+        @keyframes fadeUp {
+          from { transform: translateY(16px); opacity:0; }
+          to   { transform: translateY(0);    opacity:1; }
+        }
+        @keyframes shake {
+          0%,100% { transform: translateX(0); }
+          20%     { transform: translateX(-5px); }
+          40%     { transform: translateX(5px); }
+          60%     { transform: translateX(-4px); }
+          80%     { transform: translateX(4px); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// Mini chest modal para usar dentro de VictoryPhase
+function ChestModalMini({ badge, onClose }: { badge: any; onClose: () => void }) {
+  const [phase, setPhase] = useState<'closed'|'opening'|'open'>('closed')
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase('opening'), 300)
+    const t2 = setTimeout(() => setPhase('open'), 1000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:9999,
+      background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+    }} onClick={phase === 'open' ? onClose : undefined}>
+      <div style={{
+        background:'linear-gradient(160deg,#1C1209,#2A1E15)',
+        borderRadius:28, padding:'32px 28px',
+        maxWidth:300, width:'90%', textAlign:'center',
+        boxShadow:'0 24px 80px rgba(0,0,0,0.6), 0 0 0 2px rgba(250,199,117,0.25)',
+        position:'relative',
+      }}>
+        <div style={{
+          fontSize:56, marginBottom:12, lineHeight:1,
+          animation: phase === 'open' ? 'badgeEmerge 0.5s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+          filter:'drop-shadow(0 4px 16px rgba(250,199,117,0.7))',
+        }}>
+          {phase === 'closed' ? '🎁' : phase === 'opening' ? '📦' : badge.icono}
+        </div>
+        <div style={{ opacity: phase==='open'?1:0, transition:'all 0.5s ease 0.2s', transform: phase==='open'?'translateY(0)':'translateY(10px)' }}>
+          <div style={{ fontSize:10, fontWeight:800, color:'#EF9F27', letterSpacing:1.5, textTransform:'uppercase', marginBottom:4 }}>¡Nueva insignia!</div>
+          <div style={{ fontSize:18, fontWeight:900, color:'white', marginBottom:4 }}>{badge.nombre}</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginBottom:20 }}>{badge.descripcion ?? '¡Lo has logrado!'}</div>
+          <button onClick={onClose} style={{
+            width:'100%', padding:'11px', borderRadius:50,
+            background:`linear-gradient(135deg,#EF9F27,#C4763A)`,
+            color:'white', fontWeight:900, fontSize:13, border:'none',
+            cursor:'pointer', fontFamily:'Poppins,sans-serif',
+          }}>¡Genial! 🎉</button>
+        </div>
+        <style>{`
+          @keyframes badgeEmerge {
+            from { transform:scale(0.3) translateY(20px); opacity:0 }
+            to   { transform:scale(1)   translateY(0);    opacity:1 }
+          }
+        `}</style>
+      </div>
     </div>
   )
 }
@@ -979,6 +1107,7 @@ function LeccionPageInner() {
   const [finalXP, setFinalXP]         = useState(0)
   const [streak, setStreak]           = useState(0)
   const [tinkuTrigger, setTinkuTrigger] = useState(false)
+  const [newBadge, setNewBadge]       = useState<any>(null)
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -1058,6 +1187,52 @@ function LeccionPageInner() {
     }
   }
 
+    // Actualizar misión diaria de lecciones
+    if (userId) {
+      try {
+        const supabase2 = createClient()
+        const today = new Date().toISOString().split('T')[0]
+        const { data: upData } = await supabase2
+          .from('user_progress')
+          .select('missions_today, missions_date')
+          .eq('user_id', userId)
+          .single()
+        const isNewDay = upData?.missions_date !== today
+        const cur = isNewDay
+          ? { lessons: 0, exercises: 0, minutes: 0 }
+          : (upData?.missions_today ?? { lessons: 0, exercises: 0, minutes: 0 })
+        await supabase2.from('user_progress').update({
+          missions_today: { ...cur, lessons: cur.lessons + 1, exercises: cur.exercises + (exercises.length > 0 ? 1 : 0) },
+          missions_date: today,
+        }).eq('user_id', userId)
+      } catch (e) { /* missions_today col may not exist yet */ }
+    }
+
+    // Detectar si se acaba de ganar una insignia nueva
+    if (userId) {
+      try {
+        const supabase3 = createClient()
+        const { data: userIns } = await supabase3
+          .from('user_insignias')
+          .select('insignia_id, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (userIns && userIns.length > 0) {
+          const latest = userIns[0]
+          const celebrated = JSON.parse(localStorage.getItem('celebrated_badges') ?? '[]') as string[]
+          if (!celebrated.includes(latest.insignia_id)) {
+            const { data: ins } = await supabase3
+              .from('insignias')
+              .select('*')
+              .eq('id', latest.insignia_id)
+              .single()
+            if (ins) setNewBadge(ins)
+          }
+        }
+      } catch (e) { /* non-critical */ }
+    }
+
   setPhase('victory')
 }
   if (loading) return (
@@ -1133,9 +1308,13 @@ function LeccionPageInner() {
           xp={finalXP}
           streak={streak}
           tinkuTriggered={tinkuTrigger}
+          newBadge={newBadge}
           onGoToPath={() => {
-            // window.location.href fuerza recarga completa del dashboard
-            // para que lea user_progress actualizado desde Supabase
+            // Marcar insignia como celebrada antes de navegar
+            if (newBadge) {
+              const prev = JSON.parse(localStorage.getItem('celebrated_badges') ?? '[]') as string[]
+              localStorage.setItem('celebrated_badges', JSON.stringify([...prev, newBadge.id]))
+            }
             window.location.href = '/dashboard'
           }}
         />
