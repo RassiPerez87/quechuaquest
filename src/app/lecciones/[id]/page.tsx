@@ -13,13 +13,11 @@ const C = {
   gray:'#B4B2A9', grayl:'#F1EFE8', graybb:'#5F5E5A',
 }
 
+import { speak as speakTTS } from '@/utils/tts'
+
 // ── TTS ───────────────────────────────────────────────────────
 function speak(text: string) {
-  if (typeof window === 'undefined') return
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'es-ES'; u.rate = 0.78; u.pitch = 1.05
-  window.speechSynthesis.speak(u)
+  speakTTS(text, { rate: 0.78, pitch: 1.05 })
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -99,11 +97,7 @@ function ContentPhase({ lesson, onStartExercises }: { lesson: any; onStartExerci
 
   const handleSpeak = (text: string, key: string) => {
     setSpeaking(key)
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'es-ES'; u.rate = 0.78; u.pitch = 1.0
-    u.onend = () => setSpeaking(null)
-    window.speechSynthesis.speak(u)
+    speakTTS(text, { rate: 0.78, pitch: 1.0, onEnd: () => setSpeaking(null) })
   }
 
   const levelColors: Record<string,{bg:string;text:string}> = {

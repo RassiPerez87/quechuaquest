@@ -13,12 +13,10 @@ const C = {
   gray:'#B4B2A9', grayl:'#F1EFE8', grayb:'#888780', graybb:'#5F5E5A',
 }
 
+import { speak as speakTTS } from '@/utils/tts'
+
 function speak(text: string) {
-  if (typeof window === 'undefined') return
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'es-ES'; u.rate = 0.78; u.pitch = 1.05
-  window.speechSynthesis.speak(u)
+  speakTTS(text, { rate: 0.78, pitch: 1.05 })
 }
 
 function shuffle<T>(arr: T[]): T[] {

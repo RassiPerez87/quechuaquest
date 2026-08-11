@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { speak as speakTTS, stopTTS, loadVoices } from '@/utils/tts'
 
 const C = {
   brown:'#2A1E15', terra:'#C4763A', terral:'#FFF0E6', terrab:'#8B4E1F',
@@ -142,38 +143,18 @@ function LottieAvatar({ isTalking }: { isTalking: boolean }) {
 
 // ── TTS ───────────────────────────────────────────────────────
 function useTTS() {
-  const synthRef = useRef<SpeechSynthesis | null>(null)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      synthRef.current = window.speechSynthesis
-      window.speechSynthesis.getVoices()
-    }
-    return () => { synthRef.current?.cancel() }
+    // Para que las voces vayan cargando
+    loadVoices()
+    return () => stopTTS()
   }, [])
 
   const speak = useCallback((text: string, onStart?: () => void, onEnd?: () => void) => {
-    if (!synthRef.current) return
-    synthRef.current.cancel()
     const clean = cleanForTTS(text)
-    const utt = new SpeechSynthesisUtterance(clean)
-    utt.lang = 'es-ES'; utt.rate = 0.88; utt.pitch = 1.05; utt.volume = 1
-    const go = () => {
-      const voices = synthRef.current!.getVoices()
-      const v =
-        voices.find(v => v.name === 'Microsoft Laura - Spanish (Spain)') ||
-        voices.find(v => v.name === 'Microsoft Helena - Spanish (Spain)') ||
-        voices.find(v => v.name === 'Microsoft Sabina - Spanish (Mexico)') ||
-        voices.find(v => v.lang.startsWith('es'))
-      if (v) utt.voice = v
-      utt.onstart = () => onStart?.()
-      utt.onend   = () => onEnd?.()
-      utt.onerror = () => onEnd?.()
-      synthRef.current!.speak(utt)
-    }
-    setTimeout(go, 100)
+    speakTTS(clean, { rate: 0.88, pitch: 1.05, volume: 1, onStart, onEnd })
   }, [])
 
-  const stop = useCallback(() => { synthRef.current?.cancel() }, [])
+  const stop = useCallback(() => stopTTS(), [])
   return { speak, stop }
 }
 
