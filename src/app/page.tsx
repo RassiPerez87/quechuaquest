@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Sparkles, Heart, Globe } from 'lucide-react'
+import { ArrowRight, Sparkles, Heart, Globe, Menu, X } from 'lucide-react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -39,24 +42,61 @@ export default function LandingPage() {
           </div>
 
           {/* Botones */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Link href="/auth?mode=login" style={{
-              padding: '8px 20px', borderRadius: 50, fontWeight: 700, fontSize: 14,
-              color: '#C4763A', border: '2px solid #F4B885', background: '#FFF0E6',
-              textDecoration: 'none', transition: 'all 0.2s'
+          {isMobile ? (
+            <button onClick={() => setMobileMenuOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C4763A' }}>
+              <Menu size={28} />
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Link href="/auth?mode=login" style={{
+                padding: '8px 20px', borderRadius: 50, fontWeight: 700, fontSize: 14,
+                color: '#C4763A', border: '2px solid #F4B885', background: '#FFF0E6',
+                textDecoration: 'none', transition: 'all 0.2s'
+              }}>
+                Iniciar sesión
+              </Link>
+              <Link href="/auth" style={{
+                padding: '8px 20px', borderRadius: 50, fontWeight: 700, fontSize: 14,
+                color: 'white', background: 'linear-gradient(135deg, #C4763A, #E8943A)',
+                boxShadow: '0 4px 15px rgba(196,118,58,0.4)', textDecoration: 'none', transition: 'all 0.2s'
+              }}>
+                Registrarse →
+              </Link>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* MOBILE MENU OVERLAY */}
+      {isMobile && mobileMenuOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60, background: '#FEFAF5',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <button onClick={() => setMobileMenuOpen(false)} style={{
+            position: 'absolute', top: 24, right: 24, background: 'none', border: 'none',
+            cursor: 'pointer', color: '#3D2B1F'
+          }}>
+            <X size={32} />
+          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', width: '100%', padding: '0 40px' }}>
+            <Link href="/auth?mode=login" onClick={() => setMobileMenuOpen(false)} style={{
+              width: '100%', textAlign: 'center', padding: '16px', borderRadius: 50, fontWeight: 900, fontSize: 18,
+              color: '#C4763A', border: '2px solid #F4B885', background: '#FFF0E6', textDecoration: 'none'
             }}>
               Iniciar sesión
             </Link>
-            <Link href="/auth" style={{
-              padding: '8px 20px', borderRadius: 50, fontWeight: 700, fontSize: 14,
+            <Link href="/auth" onClick={() => setMobileMenuOpen(false)} style={{
+              width: '100%', textAlign: 'center', padding: '16px', borderRadius: 50, fontWeight: 900, fontSize: 18,
               color: 'white', background: 'linear-gradient(135deg, #C4763A, #E8943A)',
-              boxShadow: '0 4px 15px rgba(196,118,58,0.4)', textDecoration: 'none', transition: 'all 0.2s'
+              boxShadow: '0 8px 20px rgba(196,118,58,0.3)', textDecoration: 'none'
             }}>
               Registrarse →
             </Link>
           </div>
         </div>
-      </nav>
+      )}
 
       {/* HERO */}
       <section style={{

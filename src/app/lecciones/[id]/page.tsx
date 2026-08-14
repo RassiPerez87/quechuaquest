@@ -14,6 +14,7 @@ const C = {
 }
 
 import { speak as speakTTS } from '@/utils/tts'
+import { playCorrectSound, playIncorrectSound } from '@/utils/sounds'
 
 // ── TTS ───────────────────────────────────────────────────────
 function speak(text: string) {
@@ -524,7 +525,12 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
       const correct = allCorrect && Object.keys(matchedPairs).length === totalPairs
       setIsCorrect(correct)
       setSubmitted(true)
-      if (correct) setScore(s => s + 1)
+      if (correct) {
+        setScore(s => s + 1)
+        playCorrectSound()
+      } else {
+        playIncorrectSound()
+      }
       return
     } else {
       userAnswer = answer.trim()
@@ -544,8 +550,10 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
     if (isOk) {
       setScore(s => s + 1)
       setStreak(s => s + 1)
+      playCorrectSound()
     } else {
       setStreak(0)  // romper racha de correctas
+      playIncorrectSound()
     }
   }
 
@@ -566,8 +574,27 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
   const correctAnswer = ex.correct_answer || ex.respuesta_correcta || ''
 
   return (
-    <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px 40px' }}>
-      
+    <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px 140px' }}>
+      <style>{`
+        .btn-3d {
+          transition: transform 0.1s, border-bottom-width 0.1s;
+          border-bottom-width: 4px !important;
+        }
+        .btn-3d:active {
+          transform: translateY(2px);
+          border-bottom-width: 2px !important;
+          margin-top: 2px;
+        }
+        .btn-3d.disabled {
+          border-bottom-width: 2px !important;
+          transform: translateY(2px);
+          pointer-events: none;
+        }
+        @keyframes slideUpBanner {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+      `}</style>
 
       {/* Mini progreso dots */}
       <div style={{ display:'flex', justifyContent:'center', gap:5, marginBottom:20, flexWrap:'wrap' }}>
@@ -628,10 +655,10 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
                   else if (opt === answer && !isCorrect) { bg='#FFF0F0'; border='#E74C3C'; color='#C0392B' }
                 } else if (answer === opt) { bg=C.terral; border=C.terra; color=C.terra }
                 return (
-                  <button key={i} onClick={() => !submitted && setAnswer(opt)} style={{
+                  <button key={i} onClick={() => !submitted && setAnswer(opt)} className={`btn-3d ${submitted ? 'disabled' : ''}`} style={{
                     padding:'13px 18px', borderRadius:14, border:`2px solid ${border}`,
-                    background:bg, color, fontWeight:700, fontSize:14, textAlign:'left',
-                    cursor: submitted ? 'default' : 'pointer', transition:'all 0.2s',
+                    background:bg, color, fontWeight:700, fontSize:15, textAlign:'left',
+                    cursor: submitted ? 'default' : 'pointer',
                     display:'flex', alignItems:'center', justifyContent:'space-between',
                     animation: submitted && !isCorrect && opt === answer ? 'shake 0.3s ease' : 'none',
                   }}>
@@ -695,10 +722,11 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
                     if (submitted) return
                     setWordBank(prev => [...prev, w])
                     setSelectedWords(prev => prev.filter((_,j) => j!==i))
-                  }} style={{
-                    padding:'7px 13px', borderRadius:10, fontWeight:800, fontSize:13,
+                  }} className={`btn-3d ${submitted ? 'disabled' : ''}`} style={{
+                    padding:'9px 15px', borderRadius:12, fontWeight:800, fontSize:14,
                     background: submitted ? isCorrect ? '#4A7A3A' : '#E74C3C' : C.terra,
-                    color:'white', border:'none', cursor: submitted ? 'default' : 'pointer',
+                    color:'white', border:`2px solid ${submitted ? isCorrect ? '#2D7A1F' : '#C0392B' : '#A45D2A'}`,
+                    cursor: submitted ? 'default' : 'pointer',
                   }}>
                     {w}
                   </button>
@@ -711,10 +739,10 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
                     <button key={i} onClick={() => {
                       setSelectedWords(prev => [...prev, w])
                       setWordBank(prev => prev.filter((_,j) => j!==i))
-                    }} style={{
-                      padding:'7px 13px', borderRadius:10, fontWeight:700, fontSize:13,
-                      background:'white', border:'2px solid #F0E8E0', color:C.brown,
-                      cursor:'pointer', transition:'all 0.15s',
+                    }} className="btn-3d" style={{
+                      padding:'9px 15px', borderRadius:12, fontWeight:800, fontSize:14,
+                      background:'white', border:'2px solid #E8E4DE', color:C.brown,
+                      cursor:'pointer',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor=C.terra; e.currentTarget.style.background=C.terral }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor='#F0E8E0'; e.currentTarget.style.background='white' }}
@@ -742,13 +770,12 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
                   const matched = !!matchedPairs[item]
                   const sel = selectedLeft === item
                   return (
-                    <button key={i} onClick={() => { if (!submitted && !matched) { setSelectedLeft(item); setWrongPair(null) } }} style={{
-                      width:'100%', marginBottom:8, padding:'11px 13px', borderRadius:12,
-                      fontWeight:700, fontSize:13, textAlign:'left', cursor: matched||submitted ? 'default' : 'pointer',
-                      border:`2px solid ${submitted ? matched ? '#4A7A3A' : '#E74C3C' : sel ? C.terra : matched ? '#4A7A3A' : '#F0E8E0'}`,
+                    <button key={i} onClick={() => { if (!submitted && !matched) { setSelectedLeft(item); setWrongPair(null) } }} className={`btn-3d ${matched||submitted ? 'disabled' : ''}`} style={{
+                      width:'100%', marginBottom:10, padding:'12px 14px', borderRadius:14,
+                      fontWeight:800, fontSize:14, textAlign:'left', cursor: matched||submitted ? 'default' : 'pointer',
+                      border:`2px solid ${submitted ? matched ? '#4A7A3A' : '#E74C3C' : sel ? C.terra : matched ? '#4A7A3A' : '#E8E4DE'}`,
                       background: submitted ? matched ? '#E8F5E2' : '#FFF0F0' : sel ? C.terral : matched ? '#E8F5E2' : 'white',
                       color: matched ? '#2D7A1F' : sel ? C.terra : C.brown,
-                      transition:'all 0.2s',
                     }}>
                       {item} {matched && '✓'}
                     </button>
@@ -773,14 +800,13 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
                         setWrongPair(item)
                         setTimeout(() => { setWrongPair(null); setSelectedLeft(null) }, 700)
                       }
-                    }} style={{
-                      width:'100%', marginBottom:8, padding:'11px 13px', borderRadius:12,
-                      fontWeight:700, fontSize:13, textAlign:'left',
+                    }} className={`btn-3d ${matched||submitted ? 'disabled' : ''}`} style={{
+                      width:'100%', marginBottom:10, padding:'12px 14px', borderRadius:14,
+                      fontWeight:800, fontSize:14, textAlign:'left',
                       cursor: matched||submitted ? 'default' : 'pointer',
-                      border:`2px solid ${isWrong ? '#E74C3C' : submitted ? matched ? '#4A7A3A' : '#E74C3C' : matched ? '#4A7A3A' : selectedLeft ? '#F4B885' : '#F0E8E0'}`,
+                      border:`2px solid ${isWrong ? '#E74C3C' : submitted ? matched ? '#4A7A3A' : '#E74C3C' : matched ? '#4A7A3A' : selectedLeft ? '#F4B885' : '#E8E4DE'}`,
                       background: isWrong ? '#FFF0F0' : submitted ? matched ? '#E8F5E2' : '#FFF0F0' : matched ? '#E8F5E2' : 'white',
                       color: matched ? '#2D7A1F' : C.brown,
-                      transition:'all 0.2s',
                       animation: isWrong ? 'shake 0.3s ease' : 'none',
                     }}>
                       {item} {matched && '✓'}
@@ -807,63 +833,63 @@ function ExercisePhase({ exercises, lessonXP, onFinish }: {
             </div>
           )}
 
-          {/* Feedback */}
-          {submitted && (
+          {/* Feedback y Botones de acción */}
+          {submitted ? (
             <div style={{
-              padding:'13px 17px', borderRadius:14, marginBottom:16,
+              position:'fixed', bottom:0, left:0, right:0, zIndex:100,
+              padding:'20px 24px 30px', 
               background: isCorrect ? '#E8F5E2' : '#FFF0F0',
-              border:`1.5px solid ${isCorrect ? '#A8D898' : '#FFB8B8'}`,
-              animation: isCorrect ? 'correctPop 0.4s cubic-bezier(0.34,1.56,0.64,1)' : 'shake 0.4s ease',
+              borderTop: `2px solid ${isCorrect ? '#A8D898' : '#FFB8B8'}`,
+              animation: 'slideUpBanner 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.1)',
+              display: 'flex', flexDirection: 'column', gap: 16
             }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <p style={{ fontSize:15, fontWeight:900, color: isCorrect ? '#2D7A1F' : '#C0392B', margin:'0 0 4px' }}>
-                  {isCorrect ? '✅ ¡Allillanmi! ¡Correcto!' : '❌ Mana allinchu. ¡Ama llakichu!'}
-                </p>
-                {/* Racha de correctas consecutivas */}
-                {isCorrect && streak >= 2 && (
-                  <div style={{
-                    display:'flex', alignItems:'center', gap:4,
-                    padding:'3px 10px', borderRadius:20,
-                    background:'#FF8C00', color:'white',
-                    fontSize:11, fontWeight:900,
-                    animation:'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                  }}>
-                    🔥 ×{streak}
-                  </div>
+              <div style={{ maxWidth: 680, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <p style={{ fontSize:18, fontWeight:900, color: isCorrect ? '#2D7A1F' : '#C0392B', margin:0 }}>
+                    {isCorrect ? '✅ ¡Allillanmi! ¡Correcto!' : '❌ Mana allinchu'}
+                  </p>
+                  {isCorrect && streak >= 2 && (
+                    <div style={{
+                      display:'flex', alignItems:'center', gap:4,
+                      padding:'4px 12px', borderRadius:20,
+                      background:'#FF8C00', color:'white',
+                      fontSize:13, fontWeight:900,
+                      animation:'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                    }}>
+                      🔥 ×{streak}
+                    </div>
+                  )}
+                </div>
+                {(ex.explanation || ex.explicacion) && (
+                  <p style={{ fontSize:14, color: isCorrect ? '#3A6333' : '#8B2B2B', lineHeight:1.5, margin:0, fontWeight:600 }}>
+                    {ex.explanation || ex.explicacion}
+                  </p>
                 )}
+                
+                <button onClick={handleNext} className="btn-3d" style={{
+                  padding:'16px 30px', borderRadius:16, fontWeight:900, fontSize:16,
+                  border: isCorrect ? '2px solid #2D7A1F' : '2px solid #C0392B', cursor:'pointer',
+                  background: isCorrect ? '#4A7A3A' : '#E74C3C',
+                  color:'white', width: '100%', textAlign: 'center', marginTop: 8
+                }}>
+                  {current + 1 >= exercises.length ? '🏆 Ver resultados' : 'Continuar'}
+                </button>
               </div>
-              {(ex.explanation || ex.explicacion) && (
-                <p style={{ fontSize:12, color:'#6B3F2A', lineHeight:1.5, margin:0 }}>
-                  {ex.explanation || ex.explicacion}
-                </p>
-              )}
+            </div>
+          ) : (
+            <div style={{ display:'flex', justifyContent:'center', position: 'fixed', bottom: 20, left: 24, right: 24, zIndex: 90 }}>
+              <button onClick={handleSubmit} disabled={!canSubmit()} className={`btn-3d ${!canSubmit() ? 'disabled' : ''}`} style={{
+                padding:'16px 30px', borderRadius:16, fontWeight:900, fontSize:16,
+                border: canSubmit() ? '2px solid #A45D2A' : '2px solid #C4B4A8', cursor: canSubmit() ? 'pointer' : 'not-allowed',
+                background: canSubmit() ? C.terra : '#E8E4DE',
+                color: canSubmit() ? 'white' : '#9B8070',
+                width: '100%', maxWidth: 680, textAlign: 'center'
+              }}>
+                Comprobar
+              </button>
             </div>
           )}
-
-          {/* Botones de acción */}
-          <div style={{ display:'flex', justifyContent:'flex-end' }}>
-            {!submitted ? (
-              <button onClick={handleSubmit} disabled={!canSubmit()} style={{
-                padding:'12px 30px', borderRadius:50, fontWeight:900, fontSize:14,
-                border:'none', cursor: canSubmit() ? 'pointer' : 'not-allowed',
-                background: canSubmit() ? `linear-gradient(135deg,${C.terra},#E8943A)` : '#D4C4B8',
-                color: canSubmit() ? 'white' : '#9B8070',
-                boxShadow: canSubmit() ? '0 4px 16px rgba(196,118,58,0.35)' : 'none',
-                transition:'all 0.2s',
-              }}>
-                Comprobar →
-              </button>
-            ) : (
-              <button onClick={handleNext} style={{
-                padding:'12px 30px', borderRadius:50, fontWeight:900, fontSize:14,
-                border:'none', cursor:'pointer',
-                background: `linear-gradient(135deg,${C.terra},#E8943A)`,
-                color:'white', boxShadow:'0 4px 16px rgba(196,118,58,0.35)',
-              }}>
-                {current + 1 >= exercises.length ? '🏆 Ver resultados' : 'Siguiente →'}
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>

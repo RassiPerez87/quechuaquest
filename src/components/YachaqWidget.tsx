@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { speak as speakTTS, stopTTS, loadVoices } from '@/utils/tts'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const C = {
   brown:'#2A1E15', terra:'#C4763A', terral:'#FFF0E6', terrab:'#8B4E1F',
@@ -180,7 +181,9 @@ function useSpeechRecognition() {
     if (!SRC) { onErr('browser'); return }
 
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Liberar el micrófono inmediatamente para que SpeechRecognition pueda usarlo en móviles
+      stream.getTracks().forEach(t => t.stop())
     } catch {
       onErr('permission')
       return
@@ -201,11 +204,15 @@ function useSpeechRecognition() {
     sr.onerror  = (e: any) => {
       setIsListening(false)
       if (e.error === 'no-speech') onErr('no-speech')
+      else if (e.error === 'audio-capture') onErr('No se pudo acceder al micrófono.')
+      else if (e.error === 'not-allowed') onErr('permission')
       else if (e.error !== 'aborted') onErr(e.error)
     }
     sr.onresult = (e: any) => {
-      const best = e.results[0][0].transcript.trim()
-      onResult(best)
+      if (e.results && e.results[0] && e.results[0][0]) {
+        const best = e.results[0][0].transcript.trim()
+        if (best) onResult(best)
+      }
     }
 
     recognitionRef.current = sr
@@ -448,6 +455,7 @@ export default function YachaqWidget() {
   const [isTalking, setIsTalking] = useState(false)
   const [muted,     setMuted]     = useState(false)
   const [hasNew,    setHasNew]    = useState(false)
+  const isMobile = useIsMobile()
 
   // Pronunciación: la palabra activa que el usuario debe practicar
   const [practiceWord, setPracticeWord] = useState<string | null>(null)
@@ -656,9 +664,9 @@ export default function YachaqWidget() {
     <>
       {isOpen && (
         <div style={{
-          position:'fixed', bottom:92, right:20,
-          width:370, height:620,
-          borderRadius:26,
+          position:'fixed', bottom: isMobile ? 0 : 92, right: isMobile ? 0 : 20,
+          width: isMobile ? '100%' : 370, height: isMobile ? '100%' : 620,
+          borderRadius: isMobile ? 0 : 26,
           background:'rgba(254,250,245,0.97)',
           backdropFilter:'blur(20px)',
           border:`1.5px solid rgba(196,118,58,0.2)`,

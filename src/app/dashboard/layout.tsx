@@ -7,6 +7,7 @@ import { ChevronRight, ChevronLeft, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import YachaqWidget from '@/components/YachaqWidget'
 import { GameHUDMini } from '@/components/game/GameHUDMini'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const navItems = [
   { href: '/dashboard',  icon: '🏠', label: 'Inicio'      },
@@ -319,6 +320,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [progress, setProgress]     = useState<any>(null)
   const pathname = usePathname()
   const router   = useRouter()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const load = async () => {
@@ -531,7 +533,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
-  const sidebarWidth = collapsed ? 76 : 240
+  const sidebarWidth = isMobile ? 0 : (collapsed ? 76 : 240)
 
   return (
     <div style={{display:'flex',minHeight:'100vh',fontFamily:'Poppins,sans-serif',position:'relative'}}>
@@ -539,9 +541,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <AndinoBackground/>
 
       {/* SIDEBAR */}
-      <aside style={{position:'fixed',top:0,left:0,height:'100vh',width:sidebarWidth,transition:'width 0.3s ease',background:'rgba(255,255,255,0.88)',backdropFilter:'blur(12px)',borderRight:'1px solid rgba(196,118,58,0.12)',boxShadow:'2px 0 20px rgba(61,43,31,0.06)',zIndex:40,overflowX:'hidden',overflowY:'auto'}}>
-        <Sidebar/>
-      </aside>
+      {!isMobile && (
+        <aside style={{position:'fixed',top:0,left:0,height:'100vh',width:sidebarWidth,transition:'width 0.3s ease',background:'rgba(255,255,255,0.88)',backdropFilter:'blur(12px)',borderRight:'1px solid rgba(196,118,58,0.12)',boxShadow:'2px 0 20px rgba(61,43,31,0.06)',zIndex:40,overflowX:'hidden',overflowY:'auto'}}>
+          <Sidebar/>
+        </aside>
+      )}
 
       {/* MOBILE OVERLAY */}
       {mobileOpen&&(
@@ -556,23 +560,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* MAIN */}
       <main style={{flex:1,marginLeft:sidebarWidth,transition:'margin-left 0.3s ease',minHeight:'100vh',display:'flex',flexDirection:'column',position:'relative',zIndex:1}}>
         {/* TOPBAR */}
-        <div style={{position:'sticky',top:0,zIndex:30,background:'rgba(254,250,245,0.88)',backdropFilter:'blur(14px)',borderBottom:'1px solid rgba(196,118,58,0.12)',padding:'0 20px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <button onClick={()=>setMobileOpen(true)} style={{background:'none',border:'none',cursor:'pointer',color:'#3D2B1F',padding:4,display:'flex'}}>
-              <Menu size={22}/>
-            </button>
+        <div style={{position:'sticky',top:0,zIndex:30,background:'rgba(254,250,245,0.88)',backdropFilter:'blur(14px)',borderBottom:'1px solid rgba(196,118,58,0.12)',padding: isMobile ? '0 12px' : '0 20px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap: isMobile ? 4 : 10}}>
+            {isMobile && (
+              <button onClick={()=>setMobileOpen(true)} style={{background:'none',border:'none',cursor:'pointer',color:'#3D2B1F',padding:4,display:'flex'}}>
+                <Menu size={22}/>
+              </button>
+            )}
             <span style={{fontSize:20}}>🦙</span>
-            <span style={{fontWeight:900,color:'#C4763A',fontSize:16}}>QuechuaQuest</span>
+            {!isMobile && <span style={{fontWeight:900,color:'#C4763A',fontSize:16}}>QuechuaQuest</span>}
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-  <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(255,240,230,0.9)',border:'1.5px solid #F4B885',fontSize:13,fontWeight:700,color:'#C4763A',backdropFilter:'blur(4px)'}}>
-    🔥 {streakDays} días
-  </div>
-  <div style={{padding:'6px 14px',borderRadius:50,background:'rgba(250,238,218,0.9)',border:'1.5px solid #F0D080',fontSize:13,fontWeight:700,color:'#A07830',backdropFilter:'blur(4px)'}}>
-    ⚡ {xpTotal} XP
-  </div>
-  <GameHUDMini userId={profile?.id} />
-</div>
+          <div style={{display:'flex',alignItems:'center',gap: isMobile ? 4 : 8}}>
+            <div style={{padding: isMobile ? '4px 8px' : '6px 14px',borderRadius:50,background:'rgba(255,240,230,0.9)',border:'1.5px solid #F4B885',fontSize: isMobile ? 12 : 13,fontWeight:700,color:'#C4763A',backdropFilter:'blur(4px)', whiteSpace:'nowrap'}}>
+              🔥 {streakDays}{!isMobile && ' días'}
+            </div>
+            <div style={{padding: isMobile ? '4px 8px' : '6px 14px',borderRadius:50,background:'rgba(250,238,218,0.9)',border:'1.5px solid #F0D080',fontSize: isMobile ? 12 : 13,fontWeight:700,color:'#A07830',backdropFilter:'blur(4px)', whiteSpace:'nowrap'}}>
+              ⚡ {xpTotal}{!isMobile && ' XP'}
+            </div>
+            <GameHUDMini userId={profile?.id} />
+          </div>
         </div>
         {/* CONTENT */}
         <div style={{padding:'28px 24px',flex:1}}>
