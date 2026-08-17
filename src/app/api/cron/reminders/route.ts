@@ -34,14 +34,14 @@ export async function GET(request: Request) {
 
     const { data: progressData, error: progressErr } = await supabaseAdmin
       .from('user_progress')
-      .select('user_id, last_xp_date')
+      .select('user_id, streak_last_date')
 
     if (progressErr) throw progressErr
 
     // Filtramos los que no han practicado hoy
     const usersToRemind = (progressData || []).filter(p => {
-      if (!p.last_xp_date) return true
-      const lastDate = new Date(p.last_xp_date)
+      if (!p.streak_last_date) return true
+      const lastDate = new Date(p.streak_last_date)
       return lastDate < today
     })
 
