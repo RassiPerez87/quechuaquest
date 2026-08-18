@@ -131,11 +131,13 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
+        model: 'qwen/qwen3.6-27b',
         messages,
         temperature: 0.7,
-        max_tokens: 512,
+        max_tokens: 1024,
         top_p: 0.9,
+        // Deshabilitar modo de pensamiento para respuestas directas
+        reasoning_effort: 'none',
       }),
     })
 
@@ -149,9 +151,11 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content
+    // Qwen thinking models may return content in different fields
+    const msg = data.choices?.[0]?.message
+    const text = msg?.content || msg?.reasoning_content || ''
 
-    if (!text) {
+    if (!text || text.trim() === '') {
       return NextResponse.json({ error: 'Respuesta vacía del modelo' }, { status: 500 })
     }
 
